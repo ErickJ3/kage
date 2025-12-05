@@ -199,10 +199,9 @@ export class Kage {
       return;
     }
 
-    const config: KageRouteConfig =
-      typeof handlerOrConfig === "function"
-        ? { handler: handlerOrConfig }
-        : handlerOrConfig;
+    const config: KageRouteConfig = typeof handlerOrConfig === "function"
+      ? { handler: handlerOrConfig }
+      : handlerOrConfig;
 
     this.router.add(method, fullPath, config.handler, config.permissions);
   }
