@@ -207,6 +207,23 @@ export class Kage {
   }
 
   /**
+   * Handle a request and return a response.
+   * Use this for Deno Deploy or custom server integration.
+   *
+   * @example
+   * ```typescript
+   * // Deno Deploy
+   * export default app;
+   *
+   * // Or explicit
+   * Deno.serve(app.fetch);
+   * ```
+   */
+  fetch = (req: Request): Response | Promise<Response> => {
+    return this.handleRequest(req);
+  };
+
+  /**
    * Start the HTTP server and listen for requests.
    */
   async listen(options: ListenOptions = {}): Promise<void> {
@@ -219,7 +236,7 @@ export class Kage {
         hostname,
         onListen: options.onListen,
       },
-      (req) => this.handleRequest(req),
+      this.fetch,
     );
 
     await server.finished;

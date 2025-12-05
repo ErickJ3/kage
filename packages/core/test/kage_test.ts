@@ -88,10 +88,11 @@ describe("Kage", () => {
 
       // Simulate internal handling by accessing private method
       // In real tests we'd use actual server or test utilities
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/test");
       const response = await handler(request);
@@ -104,10 +105,11 @@ describe("Kage", () => {
       const app = new Kage();
       app.get("/known", () => "OK");
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/unknown");
       const response = await handler(request);
@@ -119,10 +121,11 @@ describe("Kage", () => {
       const app = new Kage();
       app.get("/users/:id", (ctx) => ctx.json({ id: ctx.params.id }));
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/users/123");
       const response = await handler(request);
@@ -134,10 +137,11 @@ describe("Kage", () => {
       const app = new Kage();
       app.get("/text", () => "Hello, World!");
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/text");
       const response = await handler(request);
@@ -153,10 +157,11 @@ describe("Kage", () => {
       const app = new Kage();
       app.get("/json", () => ({ message: "hello" }));
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/json");
       const response = await handler(request);
@@ -172,10 +177,11 @@ describe("Kage", () => {
       const app = new Kage();
       app.get("/empty", () => null);
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/empty");
       const response = await handler(request);
@@ -189,12 +195,14 @@ describe("Kage", () => {
         ctx.response("Custom", {
           status: 201,
           headers: { "X-Custom": "value" },
-        }));
+        }),
+      );
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/custom");
       const response = await handler(request);
@@ -210,10 +218,11 @@ describe("Kage", () => {
         return ctx.json({ async: true });
       });
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/async");
       const response = await handler(request);
@@ -227,10 +236,11 @@ describe("Kage", () => {
         throw new Error("Test error");
       });
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/error");
       const response = await handler(request);
@@ -254,10 +264,11 @@ describe("Kage", () => {
         return "OK";
       });
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/mw");
       await handler(request);
@@ -280,10 +291,11 @@ describe("Kage", () => {
 
       app.get("/modified", () => "OK");
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/modified");
       const response = await handler(request);
@@ -295,10 +307,11 @@ describe("Kage", () => {
       const app = new Kage();
       app.get("/binary", () => new Uint8Array([1, 2, 3]));
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/binary");
       const response = await handler(request);
@@ -317,10 +330,11 @@ describe("Kage", () => {
       const app = new Kage({ basePath: "/api" });
       app.get("/users", () => "users");
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/api/users");
       const response = await handler(request);
@@ -332,10 +346,11 @@ describe("Kage", () => {
       const app = new Kage({ basePath: "/api/" });
       app.get("/users", () => "users");
 
-      const handler = (app as unknown as {
-        handleRequest: (req: Request) => Promise<Response>;
-      })
-        .handleRequest.bind(app);
+      const handler = (
+        app as unknown as {
+          handleRequest: (req: Request) => Promise<Response>;
+        }
+      ).handleRequest.bind(app);
 
       const request = new Request("http://localhost:8000/api/users");
       const response = await handler(request);
