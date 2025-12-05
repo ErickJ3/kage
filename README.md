@@ -22,13 +22,13 @@ _req/s with oha (100 connections, 10s) on Intel i5-11300H_
 ## Installation
 
 ```typescript
-import { Kage, t } from "jsr:@kage/core";
+import { Kage } from "jsr:@kage/core";
 ```
 
 ## Example
 
 ```typescript
-import { Kage, t } from "@kage/core";
+import { Kage } from "@kage/core";
 
 new Kage()
   .get("/users", {
