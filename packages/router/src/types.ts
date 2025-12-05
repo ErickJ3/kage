@@ -3,7 +3,6 @@
  */
 
 import type { Permission } from "@kage/permissions";
-import type { Context } from "@kage/core";
 
 export type HttpMethod =
   | "GET"
@@ -14,7 +13,10 @@ export type HttpMethod =
   | "HEAD"
   | "OPTIONS";
 
-export type Handler = (ctx: Context) => unknown | Promise<unknown>;
+// deno-lint-ignore no-explicit-any
+export type Handler<TContext = any> = (
+  ctx: TContext,
+) => unknown | Promise<unknown>;
 
 /**
  * Configuration for route with optional permissions.
@@ -30,14 +32,9 @@ export type Handler = (ctx: Context) => unknown | Promise<unknown>;
  * };
  * ```
  */
-export interface RouteConfig {
+export interface RouteConfig<TContext = unknown> {
   permissions?: Permission[];
-  handler: Handler;
-}
-
-export interface TypedRouteConfig<TContext extends Context = Context> {
-  permissions?: Permission[];
-  handler: (ctx: TContext) => unknown | Promise<unknown>;
+  handler: Handler<TContext>;
 }
 
 export interface Route {

@@ -1,13 +1,12 @@
 import { assertEquals, assertExists, assertThrows } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { Router } from "../src/router.ts";
-import type { Context } from "@kage/core";
 
 describe("Router", () => {
   describe("add()", () => {
     it("should register static route", () => {
       const router = new Router();
-      const handler = (_ctx: Context) => ({ success: true });
+      const handler = (_ctx: unknown) => ({ success: true });
 
       router.add("GET", "/users", handler);
 
@@ -19,7 +18,7 @@ describe("Router", () => {
 
     it("should register route with single parameter", () => {
       const router = new Router();
-      const handler = (_ctx: Context) => ({ success: true });
+      const handler = (_ctx: unknown) => ({ success: true });
 
       router.add("GET", "/users/:id", handler);
 
@@ -30,7 +29,7 @@ describe("Router", () => {
 
     it("should register route with multiple parameters", () => {
       const router = new Router();
-      const handler = (_ctx: Context) => ({ success: true });
+      const handler = (_ctx: unknown) => ({ success: true });
 
       router.add("GET", "/users/:userId/posts/:postId", handler);
 
@@ -41,7 +40,7 @@ describe("Router", () => {
 
     it("should register wildcard route", () => {
       const router = new Router();
-      const handler = (_ctx: Context) => ({ success: true });
+      const handler = (_ctx: unknown) => ({ success: true });
 
       router.add("GET", "/files/*", handler);
 
@@ -51,7 +50,7 @@ describe("Router", () => {
 
     it("should throw on duplicate route registration", () => {
       const router = new Router();
-      const handler = (_ctx: Context) => ({ success: true });
+      const handler = (_ctx: unknown) => ({ success: true });
 
       router.add("GET", "/users", handler);
 
@@ -64,7 +63,7 @@ describe("Router", () => {
 
     it("should throw on path not starting with /", () => {
       const router = new Router();
-      const handler = (_ctx: Context) => ({ success: true });
+      const handler = (_ctx: unknown) => ({ success: true });
 
       assertThrows(
         () => router.add("GET", "users", handler),
@@ -75,8 +74,8 @@ describe("Router", () => {
 
     it("should allow same path for different methods", () => {
       const router = new Router();
-      const getHandler = (_ctx: Context) => ({ method: "GET" });
-      const postHandler = (_ctx: Context) => ({ method: "POST" });
+      const getHandler = (_ctx: unknown) => ({ method: "GET" });
+      const postHandler = (_ctx: unknown) => ({ method: "POST" });
 
       router.add("GET", "/users", getHandler);
       router.add("POST", "/users", postHandler);
@@ -102,7 +101,7 @@ describe("Router", () => {
 
     it("should return null for wrong method", () => {
       const router = new Router();
-      router.add("GET", "/users", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("POST", "/users");
 
@@ -111,7 +110,7 @@ describe("Router", () => {
 
     it("should match exact static routes only", () => {
       const router = new Router();
-      router.add("GET", "/users", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users", (_ctx: unknown) => ({ success: true }));
 
       const exactMatch = router.find("GET", "/users");
       assertExists(exactMatch);
@@ -123,7 +122,7 @@ describe("Router", () => {
 
     it("should extract single parameter correctly", () => {
       const router = new Router();
-      router.add("GET", "/users/:id", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users/:id", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/users/abc123");
 
@@ -136,7 +135,7 @@ describe("Router", () => {
       router.add(
         "GET",
         "/orgs/:orgId/teams/:teamId/members/:memberId",
-        (_ctx: Context) => ({ success: true }),
+        (_ctx: unknown) => ({ success: true }),
       );
 
       const match = router.find("GET", "/orgs/org1/teams/team2/members/user3");
@@ -151,7 +150,7 @@ describe("Router", () => {
 
     it("should handle numeric parameters", () => {
       const router = new Router();
-      router.add("GET", "/users/:id", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users/:id", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/users/42");
 
@@ -161,7 +160,7 @@ describe("Router", () => {
 
     it("should handle UUID parameters", () => {
       const router = new Router();
-      router.add("GET", "/users/:id", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users/:id", (_ctx: unknown) => ({ success: true }));
 
       const uuid = "123e4567-e89b-12d3-a456-426614174000";
       const match = router.find("GET", `/users/${uuid}`);
@@ -172,8 +171,8 @@ describe("Router", () => {
 
     it("should match routes in registration order", () => {
       const router = new Router();
-      const handler1 = (_ctx: Context) => ({ handler: 1 });
-      const handler2 = (_ctx: Context) => ({ handler: 2 });
+      const handler1 = (_ctx: unknown) => ({ handler: 1 });
+      const handler2 = (_ctx: unknown) => ({ handler: 2 });
 
       router.add("GET", "/users/:id", handler1);
       router.add("GET", "/users/*", handler2);
@@ -186,7 +185,7 @@ describe("Router", () => {
 
     it("should handle wildcard matching", () => {
       const router = new Router();
-      router.add("GET", "/files/*", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/files/*", (_ctx: unknown) => ({ success: true }));
 
       const match1 = router.find("GET", "/files/doc.pdf");
       const match2 = router.find("GET", "/files/folder/subfolder/image.png");
@@ -197,7 +196,7 @@ describe("Router", () => {
 
     it("should not match parameter across path segments", () => {
       const router = new Router();
-      router.add("GET", "/users/:id", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users/:id", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/users/123/posts");
 
@@ -206,7 +205,7 @@ describe("Router", () => {
 
     it("should handle URL-encoded parameters", () => {
       const router = new Router();
-      router.add("GET", "/search/:query", (_ctx: Context) => ({
+      router.add("GET", "/search/:query", (_ctx: unknown) => ({
         success: true,
       }));
 
@@ -218,7 +217,7 @@ describe("Router", () => {
 
     it("should handle special characters in parameters", () => {
       const router = new Router();
-      router.add("GET", "/tags/:tag", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/tags/:tag", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/tags/c++");
 
@@ -230,7 +229,7 @@ describe("Router", () => {
   describe("Security", () => {
     it("should prevent path traversal in parameters", () => {
       const router = new Router();
-      router.add("GET", "/files/:filename", (_ctx: Context) => ({
+      router.add("GET", "/files/:filename", (_ctx: unknown) => ({
         success: true,
       }));
 
@@ -241,7 +240,7 @@ describe("Router", () => {
 
     it("should not allow / in parameter values", () => {
       const router = new Router();
-      router.add("GET", "/users/:id", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users/:id", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/users/123/456");
 
@@ -250,7 +249,7 @@ describe("Router", () => {
 
     it("should handle malformed paths safely", () => {
       const router = new Router();
-      router.add("GET", "/users/:id", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users/:id", (_ctx: unknown) => ({ success: true }));
 
       assertEquals(router.find("GET", ""), null);
       assertEquals(router.find("GET", "//"), null);
@@ -262,7 +261,7 @@ describe("Router", () => {
   describe("Edge Cases", () => {
     it("should handle empty path segment in pattern", () => {
       const router = new Router();
-      router.add("GET", "/", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/");
 
@@ -271,7 +270,7 @@ describe("Router", () => {
 
     it("should handle trailing slash differences", () => {
       const router = new Router();
-      router.add("GET", "/users", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/users", (_ctx: unknown) => ({ success: true }));
 
       assertExists(router.find("GET", "/users"));
       assertEquals(router.find("GET", "/users/"), null);
@@ -279,7 +278,7 @@ describe("Router", () => {
 
     it("should handle routes with dots", () => {
       const router = new Router();
-      router.add("GET", "/file.json", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/file.json", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/file.json");
 
@@ -288,7 +287,7 @@ describe("Router", () => {
 
     it("should handle routes with query string-like patterns", () => {
       const router = new Router();
-      router.add("GET", "/search", (_ctx: Context) => ({ success: true }));
+      router.add("GET", "/search", (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", "/search");
 
@@ -298,7 +297,7 @@ describe("Router", () => {
     it("should handle very long paths", () => {
       const router = new Router();
       const longPath = "/a".repeat(1000);
-      router.add("GET", longPath, (_ctx: Context) => ({ success: true }));
+      router.add("GET", longPath, (_ctx: unknown) => ({ success: true }));
 
       const match = router.find("GET", longPath);
 
@@ -307,7 +306,7 @@ describe("Router", () => {
 
     it("should handle many parameters", () => {
       const router = new Router();
-      router.add("GET", "/:a/:b/:c/:d/:e/:f/:g/:h/:i/:j", (_ctx: Context) => ({
+      router.add("GET", "/:a/:b/:c/:d/:e/:f/:g/:h/:i/:j", (_ctx: unknown) => ({
         success: true,
       }));
 
@@ -332,9 +331,9 @@ describe("Router", () => {
   describe("Utility Methods", () => {
     it("should return all routes via getRoutes()", () => {
       const router = new Router();
-      router.add("GET", "/users", (_ctx: Context) => ({}));
-      router.add("POST", "/users", (_ctx: Context) => ({}));
-      router.add("GET", "/posts", (_ctx: Context) => ({}));
+      router.add("GET", "/users", (_ctx: unknown) => ({}));
+      router.add("POST", "/users", (_ctx: unknown) => ({}));
+      router.add("GET", "/posts", (_ctx: unknown) => ({}));
 
       const routes = router.getRoutes();
 
@@ -346,8 +345,8 @@ describe("Router", () => {
 
     it("should clear all routes via clear()", () => {
       const router = new Router();
-      router.add("GET", "/users", (_ctx: Context) => ({}));
-      router.add("POST", "/users", (_ctx: Context) => ({}));
+      router.add("GET", "/users", (_ctx: unknown) => ({}));
+      router.add("POST", "/users", (_ctx: unknown) => ({}));
 
       router.clear();
 
@@ -369,7 +368,7 @@ describe("Router", () => {
       const router = new Router();
 
       for (let i = 0; i < 1000; i++) {
-        router.add("GET", `/route${i}/:id`, (_ctx: Context) => ({ id: i }));
+        router.add("GET", `/route${i}/:id`, (_ctx: unknown) => ({ id: i }));
       }
 
       for (let i = 0; i < 10; i++) {
@@ -387,7 +386,7 @@ describe("Router", () => {
 
     it("should not degrade with multiple lookups", () => {
       const router = new Router();
-      router.add("GET", "/users/:id", (_ctx: Context) => ({}));
+      router.add("GET", "/users/:id", (_ctx: unknown) => ({}));
 
       const durations: number[] = [];
 

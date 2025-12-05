@@ -2,17 +2,22 @@
  * Main Kage application class.
  */
 
-import {
-  type Handler,
-  type HttpMethod,
-  type RouteConfig,
-  Router,
-} from "@kage/router";
+import { type Handler, type HttpMethod, Router } from "@kage/router";
+import type { Permission } from "@kage/permissions";
 import type { KageConfig, ListenOptions } from "~/app/types.ts";
 import { Context, ContextPool } from "~/context/mod.ts";
 import { compose, type Middleware } from "~/middleware/mod.ts";
 import type { TypedRouteDefinition } from "~/routing/types.ts";
 import { wrapTypedHandler } from "~/routing/builder.ts";
+
+/** Handler function that receives a Context and returns a response. */
+export type KageHandler = (ctx: Context) => unknown | Promise<unknown>;
+
+/** Route configuration with handler and optional permissions. */
+export interface KageRouteConfig {
+  handler: KageHandler;
+  permissions?: Permission[];
+}
 
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
@@ -85,9 +90,12 @@ export class Kage {
   /**
    * Register a GET route.
    */
+  get(path: string, handler: KageHandler): void;
+  get(path: string, config: KageRouteConfig): void;
+  get(path: string, config: TypedRouteDefinition): void;
   get(
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     this.addRoute("GET", path, handlerOrConfig);
   }
@@ -95,9 +103,12 @@ export class Kage {
   /**
    * Register a POST route.
    */
+  post(path: string, handler: KageHandler): void;
+  post(path: string, config: KageRouteConfig): void;
+  post(path: string, config: TypedRouteDefinition): void;
   post(
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     this.addRoute("POST", path, handlerOrConfig);
   }
@@ -105,9 +116,12 @@ export class Kage {
   /**
    * Register a PUT route.
    */
+  put(path: string, handler: KageHandler): void;
+  put(path: string, config: KageRouteConfig): void;
+  put(path: string, config: TypedRouteDefinition): void;
   put(
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     this.addRoute("PUT", path, handlerOrConfig);
   }
@@ -115,9 +129,12 @@ export class Kage {
   /**
    * Register a PATCH route.
    */
+  patch(path: string, handler: KageHandler): void;
+  patch(path: string, config: KageRouteConfig): void;
+  patch(path: string, config: TypedRouteDefinition): void;
   patch(
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     this.addRoute("PATCH", path, handlerOrConfig);
   }
@@ -125,9 +142,12 @@ export class Kage {
   /**
    * Register a DELETE route.
    */
+  delete(path: string, handler: KageHandler): void;
+  delete(path: string, config: KageRouteConfig): void;
+  delete(path: string, config: TypedRouteDefinition): void;
   delete(
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     this.addRoute("DELETE", path, handlerOrConfig);
   }
@@ -135,9 +155,12 @@ export class Kage {
   /**
    * Register a HEAD route.
    */
+  head(path: string, handler: KageHandler): void;
+  head(path: string, config: KageRouteConfig): void;
+  head(path: string, config: TypedRouteDefinition): void;
   head(
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     this.addRoute("HEAD", path, handlerOrConfig);
   }
@@ -145,9 +168,12 @@ export class Kage {
   /**
    * Register an OPTIONS route.
    */
+  options(path: string, handler: KageHandler): void;
+  options(path: string, config: KageRouteConfig): void;
+  options(path: string, config: TypedRouteDefinition): void;
   options(
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     this.addRoute("OPTIONS", path, handlerOrConfig);
   }
@@ -155,7 +181,7 @@ export class Kage {
   private addRoute(
     method: HttpMethod,
     path: string,
-    handlerOrConfig: Handler | RouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): void {
     const fullPath = this.resolvePath(path);
 
@@ -173,15 +199,16 @@ export class Kage {
       return;
     }
 
-    const config: RouteConfig = typeof handlerOrConfig === "function"
-      ? { handler: handlerOrConfig }
-      : handlerOrConfig;
+    const config: KageRouteConfig =
+      typeof handlerOrConfig === "function"
+        ? { handler: handlerOrConfig }
+        : handlerOrConfig;
 
     this.router.add(method, fullPath, config.handler, config.permissions);
   }
 
   private isTypedRouteDefinition(
-    config: Handler | RouteConfig | TypedRouteDefinition,
+    config: KageHandler | KageRouteConfig | TypedRouteDefinition,
   ): config is TypedRouteDefinition {
     return (
       typeof config === "object" &&

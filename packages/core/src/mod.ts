@@ -21,7 +21,12 @@ export const t = Type;
 export type { Static, TSchema } from "@sinclair/typebox";
 
 export { Kage } from "~/app/mod.ts";
-export type { KageConfig, ListenOptions } from "~/app/mod.ts";
+export type {
+  KageConfig,
+  KageHandler,
+  KageRouteConfig,
+  ListenOptions,
+} from "~/app/mod.ts";
 
 export { Context, ContextPool } from "~/context/mod.ts";
 
