@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Publish @kage/permissions
+        run: deno publish --allow-dirty
+        working-directory: packages/permissions
+
+      - name: Publish @kage/router
+        run: deno publish --allow-dirty
+        working-directory: packages/router
+
+      - name: Publish @kage/core
+        run: deno publish --allow-dirty
+        working-directory: packages/core
+
+      - name: Publish @kage/schema
+        run: deno publish --allow-dirty
+        working-directory: packages/schema
+
+      - name: Publish @kage/dev
+        run: deno publish --allow-dirty
+        working-directory: packages/dev
