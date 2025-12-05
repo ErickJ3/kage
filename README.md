@@ -30,28 +30,15 @@ import { Kage, t } from "jsr:@kage/core";
 ```typescript
 import { Kage, t } from "@kage/core";
 
-const app = new Kage();
-
-// Route with explicit permissions
-app.get("/users", {
-  permissions: ["net:api.example.com"],
-  handler: async (ctx) => {
-    const users = await fetch("https://api.example.com/users");
-    return ctx.json(await users.json());
-  },
-});
-
-// Route with schema validation
-app.post("/users", {
-  body: createUserSchema,
-  response: userResponseSchema,
-  handler: async (ctx) => {
-    const user = ctx.body; // fully typed
-    return { id: crypto.randomUUID(), createdAt: new Date() };
-  },
-});
-
-app.listen({ port: 8000 });
+new Kage()
+  .get("/users", {
+    permissions: ["net:api.example.com"], // optional
+    handler: async (ctx) => {
+      const users = await fetch("https://api.example.com/users");
+      return ctx.json(await users.json());
+    },
+  })
+  .listen({ port: 8000 });
 ```
 
 ## Development
