@@ -1,0 +1,5 @@
+{
+  "name": "@kage/workers",
+  "version": "0.1.0",
+  "exports": "./mod.ts"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@kage/benchmarks",
+  "version": "0.1.0",
+  "exports": "./mod.ts",
+  "imports": {
+    "@oak/oak": "jsr:@oak/oak@^17.2.0",
+    "hono": "npm:hono@^4.10.7"
+  }
+}
