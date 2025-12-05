@@ -1,5 +1,4 @@
 const packages = [
-  "packages/permissions/deno.json",
   "packages/router/deno.json",
   "packages/core/deno.json",
   "packages/schema/deno.json",
