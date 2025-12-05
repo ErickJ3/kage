@@ -2,12 +2,12 @@
 
 ## Current Performance (vs Hono & Oak)
 
-| Scenario         | Kage        | Hono       | Oak        | Kage vs Hono |
-| ---------------- | ----------- | ---------- | ---------- | ------------ |
-| Simple route     | 97,583      | 87,428     | 48,135     | **+11.6%**   |
-| Parameterized    | 98,433      | 86,335     | 47,709     | **+14.0%**   |
-| JSON parsing     | 45,774      | 41,221     | 26,451     | **+11.0%**   |
-| Middleware chain | 109,522     | 78,552     | 47,238     | **+39.4%**   |
+| Scenario         | Kage    | Hono   | Oak    | Kage vs Hono |
+| ---------------- | ------- | ------ | ------ | ------------ |
+| Simple route     | 97,583  | 87,428 | 48,135 | **+11.6%**   |
+| Parameterized    | 98,433  | 86,335 | 47,709 | **+14.0%**   |
+| JSON parsing     | 45,774  | 41,221 | 26,451 | **+11.0%**   |
+| Middleware chain | 109,522 | 78,552 | 47,238 | **+39.4%**   |
 
 ### Latency Analysis
 
@@ -29,6 +29,7 @@
 **Problema**: Alocação de objetos durante request handling pode causar GC pauses.
 
 **Fontes identificadas**:
+
 - `Object.create(null)` no router para params (linha 116 em `router.ts`)
 - Criação de novos `Response` objects em `toResponse()` e `Context.json()`
 - `JSON.stringify()` cria strings temporárias
@@ -36,6 +37,7 @@
 **Impacto**: GC pauses podem causar spikes de latência p99.
 
 **Otimizações possíveis**:
+
 ```typescript
 // 1. Usar Response caching para responses comuns
 const cachedOkResponse = new Response(null, { status: 200 });
@@ -45,7 +47,7 @@ const paramsPool: Record<string, string>[] = [];
 
 // 3. Pre-stringify para responses estáticas
 const HELLO_RESPONSE = new Response('{"message":"Hello"}', {
-  headers: JSON_HEADERS
+  headers: JSON_HEADERS,
 });
 ```
 
@@ -54,6 +56,7 @@ const HELLO_RESPONSE = new Response('{"message":"Hello"}', {
 **Problema**: `ContextPool` usa um array simples com `pop()`/`push()`. Em alta concorrência, pode haver contenção.
 
 **Código atual** (`pool.ts`):
+
 ```typescript
 acquire(): Context {
   const ctx = this.pool.pop();  // Single-threaded, mas...
@@ -62,6 +65,7 @@ acquire(): Context {
 ```
 
 **Otimizações possíveis**:
+
 - Pre-allocate contexts no startup
 - Aumentar `maxSize` default (atualmente 100)
 - Usar typed arrays para melhor cache locality
@@ -71,6 +75,7 @@ acquire(): Context {
 **Problema**: O pathname é parseado tanto em `handleRequest()` quanto potencialmente em `Context.reset()`.
 
 **Código atual** (`kage.ts:458-477`):
+
 ```typescript
 // Parsing manual do pathname
 const protocolEnd = urlStr.indexOf("://");
@@ -89,6 +94,7 @@ const protocolEnd = urlStr.indexOf("://");
 **Problema**: Cada request cria um novo `Response` object.
 
 **Código atual** (`kage.ts:581-613`):
+
 ```typescript
 private toResponse(result: unknown): Response {
   // Multiple instanceof checks
@@ -100,6 +106,7 @@ private toResponse(result: unknown): Response {
 ```
 
 **Otimizações possíveis**:
+
 ```typescript
 // 1. Evitar clone() quando possível
 // 2. Response pooling para responses comuns
@@ -111,6 +118,7 @@ private toResponse(result: unknown): Response {
 **Problema**: Cada middleware call usa `async/await`, mesmo quando não necessário.
 
 **Código atual** (`kage.ts:539-554`):
+
 ```typescript
 private async executeSingleMiddleware(): Promise<Response> {
   const response = await this.middleware[0](ctx, async () => {
@@ -121,6 +129,7 @@ private async executeSingleMiddleware(): Promise<Response> {
 ```
 
 **Otimização**: Detectar se handler é sync e evitar await:
+
 ```typescript
 private executeSingleMiddleware(): Response | Promise<Response> {
   const result = handler(ctx);
@@ -152,11 +161,11 @@ Deno.serve({ port: 8000 }, (req) => {
 
 ```typescript
 // Bom: shape consistente
-const params = { id: "", name: "" };  // Sempre mesmas keys
+const params = { id: "", name: "" }; // Sempre mesmas keys
 
 // Ruim: shapes dinâmicos
-const params = Object.create(null);  // Hidden class diferente
-params[dynamicKey] = value;  // Deopt
+const params = Object.create(null); // Hidden class diferente
+params[dynamicKey] = value; // Deopt
 ```
 
 **Monomorphic Functions**: Evitar polimorfismo em hot paths.
