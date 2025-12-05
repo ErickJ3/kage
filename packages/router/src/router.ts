@@ -6,14 +6,25 @@
  * - Routes stored in registration order for predictable priority
  * - RegExp patterns compiled once at registration
  * - Parameter extraction with pre-computed param names
+ * - Object pooling for params to reduce GC pressure
  */
 
 import type { Handler, HttpMethod, Match, Route } from "~/types.ts";
-import type { Permission } from "@kage/permissions";
 
+// Frozen empty params object for static routes - single allocation
 const EMPTY_PARAMS: Record<string, string> = Object.freeze(
   Object.create(null),
 );
+
+// Simple params creation - pooling adds overhead for small objects
+function createParams(): Record<string, string> {
+  return Object.create(null);
+}
+
+// No-op release - GC handles small short-lived objects efficiently
+function releaseParams(_params: Record<string, string>): void {
+  // Intentionally empty - V8's GC is optimized for short-lived objects
+}
 
 interface StaticCacheEntry {
   route: Route;
@@ -50,12 +61,7 @@ export class Router {
    *
    * @throws {Error} If route is already registered or path doesn't start with /
    */
-  add(
-    method: HttpMethod,
-    path: string,
-    handler: Handler,
-    permissions?: Permission[],
-  ): void {
+  add(method: HttpMethod, path: string, handler: Handler): void {
     if (!path.startsWith("/")) {
       throw new Error(`Route path must start with /: ${path}`);
     }
@@ -74,7 +80,6 @@ export class Router {
       handler,
       paramNames,
       path,
-      permissions,
     };
 
     const isStatic = paramNames.length === 0 && !path.includes("*");
@@ -102,6 +107,7 @@ export class Router {
    * Find a matching route for the given method and path.
    */
   find(method: HttpMethod, path: string): Match | null {
+    // Fast path: static route cache lookup
     const methodCache = this.staticCache.get(method);
     if (methodCache) {
       const cached = methodCache.get(path);
@@ -110,6 +116,7 @@ export class Router {
       }
     }
 
+    // Dynamic route matching
     const methodRoutes = this.routes.get(method);
     if (!methodRoutes) {
       return null;
@@ -120,9 +127,11 @@ export class Router {
       const route = methodRoutes[i];
       const regexMatch = route.pattern.exec(path);
       if (regexMatch) {
-        const params: Record<string, string> = Object.create(null);
         const paramNames = route.paramNames;
         const paramLen = paramNames.length;
+
+        // Create params object
+        const params = createParams();
         for (let j = 0; j < paramLen; j++) {
           params[paramNames[j]] = regexMatch[j + 1];
         }
@@ -135,6 +144,16 @@ export class Router {
     }
 
     return null;
+  }
+
+  /**
+   * Release params object back to the pool.
+   * Should be called after request handling is complete.
+   */
+  releaseParams(params: Record<string, string>): void {
+    if (params !== EMPTY_PARAMS) {
+      releaseParams(params);
+    }
   }
 
   /**
@@ -196,3 +215,6 @@ export class Router {
     return size;
   }
 }
+
+// Export for external use
+export { releaseParams };

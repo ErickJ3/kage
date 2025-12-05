@@ -3,7 +3,7 @@
  */
 
 import type { Middleware } from "../middleware/types.ts";
-import type { Handler, HttpMethod, RouteConfig } from "@kage/router";
+import type { Handler, HttpMethod } from "@kage/router";
 
 /**
  * Plugin lifecycle hooks.
@@ -39,7 +39,7 @@ export interface ListenInfo {
  */
 export interface PluginContext {
   use(middleware: Middleware): void;
-  route(method: HttpMethod, path: string, handler: Handler | RouteConfig): void;
+  route(method: HttpMethod, path: string, handler: Handler): void;
   getConfig<T = unknown>(key: string): T | undefined;
   setConfig<T = unknown>(key: string, value: T): void;
   isDevelopment(): boolean;
@@ -66,6 +66,6 @@ export interface Plugin {
   readonly routes?: Array<{
     method: HttpMethod;
     path: string;
-    handler: Handler | RouteConfig;
+    handler: Handler;
   }>;
 }

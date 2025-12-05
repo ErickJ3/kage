@@ -1,15 +1,31 @@
 /**
  * Object pool for Context instances to reduce GC pressure.
+ * Pre-allocates contexts for warm start performance.
  */
 
 import { Context } from "~/context/context.ts";
 
+// Dummy request for pre-allocation
+const DUMMY_REQUEST = new Request("http://localhost/");
+
 export class ContextPool {
-  private pool: Context[] = [];
+  private pool: Context[];
   private maxSize: number;
 
-  constructor(maxSize = 100) {
+  constructor(maxSize = 256) {
     this.maxSize = maxSize;
+    this.pool = [];
+  }
+
+  /**
+   * Pre-allocate contexts for warm start.
+   * Call this during initialization to avoid allocation during requests.
+   */
+  preallocate(count: number): void {
+    const toCreate = Math.min(count, this.maxSize - this.pool.length);
+    for (let i = 0; i < toCreate; i++) {
+      this.pool.push(new Context(DUMMY_REQUEST, {}, null, "/"));
+    }
   }
 
   acquire(
@@ -33,7 +49,7 @@ export class ContextPool {
   }
 
   clear(): void {
-    this.pool = [];
+    this.pool.length = 0;
   }
 
   size(): number {

@@ -5,10 +5,8 @@
   "workspace": [
     "./packages/core",
     "./packages/router",
-    "./packages/permissions",
     "./packages/schema",
     "./packages/workers",
-    "./packages/multi-tenant",
     "./packages/dev",
     "./benchmarks"
   ],

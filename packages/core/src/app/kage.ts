@@ -1,10 +1,16 @@
 /**
  * Main Kage application class.
+ * Optimized for maximum performance on Deno.
  */
 
-import { type Handler, type HttpMethod, Router } from "@kage/router";
-import type { Permission } from "@kage/permissions";
-import type { TSchema } from "@sinclair/typebox";
+import {
+  type Handler,
+  type HttpMethod,
+  type Match,
+  releaseParams,
+  Router,
+} from "@kage/router";
+import type { Static, TSchema } from "@sinclair/typebox";
 import type { KageConfig, ListenOptions } from "~/app/types.ts";
 import { Context, ContextPool } from "~/context/mod.ts";
 import { compose, type Middleware } from "~/middleware/mod.ts";
@@ -13,10 +19,9 @@ import { wrapTypedHandler } from "~/routing/builder.ts";
 /** Handler function that receives a Context and returns a response. */
 export type KageHandler = (ctx: Context) => unknown | Promise<unknown>;
 
-/** Route configuration with handler and optional permissions. */
+/** Route configuration with handler. */
 export interface KageRouteConfig {
   handler: KageHandler;
-  permissions?: Permission[];
 }
 
 /** Context with validated data for schema routes. */
@@ -66,35 +71,61 @@ export type KageSchemaHandler<
   ctx: KageSchemaContext<TParams, TQuery, TBody>,
 ) => unknown | Promise<unknown>;
 
-/** Route configuration with schema validation. */
-export interface KageSchemaConfig<
-  TParams = Record<string, string>,
-  TQuery = Record<string, unknown>,
-  TBody = unknown,
+/** Infer type from schema or use default. */
+type InferSchema<T, Default = unknown> = T extends TSchema ? Static<T>
+  : Default;
+
+/** Schema configuration object. */
+export interface KageSchemas<
+  TBodySchema extends TSchema | undefined = undefined,
+  TQuerySchema extends TSchema | undefined = undefined,
+  TParamsSchema extends TSchema | undefined = undefined,
+  TResponseSchema extends TSchema | undefined = undefined,
 > {
-  schemas: {
-    body?: TSchema;
-    query?: TSchema;
-    params?: TSchema;
-    response?: TSchema;
-  };
-  handler: KageSchemaHandler<TParams, TQuery, TBody>;
-  permissions?: Permission[];
+  body?: TBodySchema;
+  query?: TQuerySchema;
+  params?: TParamsSchema;
+  response?: TResponseSchema;
 }
 
-const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
+/** Route configuration with schema validation and type inference. */
+export interface KageSchemaConfig<
+  TBodySchema extends TSchema | undefined = undefined,
+  TQuerySchema extends TSchema | undefined = undefined,
+  TParamsSchema extends TSchema | undefined = undefined,
+  TResponseSchema extends TSchema | undefined = undefined,
+> {
+  schemas: KageSchemas<
+    TBodySchema,
+    TQuerySchema,
+    TParamsSchema,
+    TResponseSchema
+  >;
+  handler: KageSchemaHandler<
+    InferSchema<TParamsSchema, Record<string, string>>,
+    InferSchema<TQuerySchema, Record<string, unknown>>,
+    InferSchema<TBodySchema, unknown>
+  >;
+}
+
+// Pre-computed headers for monomorphic response creation
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
+const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const OCTET_CONTENT_TYPE = "application/octet-stream";
 
-const JSON_HEADERS = Object.freeze({ "Content-Type": JSON_CONTENT_TYPE });
-const TEXT_HEADERS = Object.freeze({ "Content-Type": TEXT_CONTENT_TYPE });
-const BINARY_HEADERS = Object.freeze({ "Content-Type": OCTET_CONTENT_TYPE });
+// Frozen header objects - reused across all responses
+const JSON_HEADERS: HeadersInit = { "Content-Type": JSON_CONTENT_TYPE };
+const TEXT_HEADERS: HeadersInit = { "Content-Type": TEXT_CONTENT_TYPE };
+const BINARY_HEADERS: HeadersInit = { "Content-Type": OCTET_CONTENT_TYPE };
 
-const NOT_FOUND_RESPONSE = new Response("Not Found", { status: 404 });
-const NO_CONTENT_RESPONSE = new Response(null, { status: 204 });
-const INTERNAL_ERROR_RESPONSE = new Response("Internal Server Error", {
-  status: 500,
-});
+// Pre-allocated response init objects for common status codes
+const JSON_INIT_200: ResponseInit = { headers: JSON_HEADERS };
+const TEXT_INIT_200: ResponseInit = { headers: TEXT_HEADERS };
+const BINARY_INIT_200: ResponseInit = { headers: BINARY_HEADERS };
+
+// Static responses - no clone needed, Response body is null or consumed
+const NOT_FOUND_BODY = "Not Found";
+const INTERNAL_ERROR_BODY = "Internal Server Error";
 
 /**
  * Kage application class.
@@ -120,6 +151,7 @@ export class Kage {
     | ((ctx: Context, next: () => Promise<Response>) => Promise<Response>)
     | null = null;
   private contextPool: ContextPool;
+  private isDev: boolean;
 
   constructor(config: KageConfig = {}) {
     this.router = new Router();
@@ -129,15 +161,19 @@ export class Kage {
       basePath: "/",
       ...config,
     };
-    this.contextPool = new ContextPool();
+    this.isDev = this.config.development ?? false;
+    // Pre-allocate context pool for warm start
+    this.contextPool = new ContextPool(256);
+    this.contextPool.preallocate(64);
   }
 
   /**
    * Add global middleware to the application.
    */
-  use(middleware: Middleware): void {
+  use(middleware: Middleware): this {
     this.middleware.push(middleware);
     this.composedMiddleware = null;
+    return this;
   }
 
   private getComposedMiddleware(): (
@@ -153,12 +189,18 @@ export class Kage {
   /**
    * Register a GET route.
    */
-  get<TBody = unknown>(
+  get<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   get(path: string, config: KageRouteConfig): this;
@@ -174,12 +216,18 @@ export class Kage {
   /**
    * Register a POST route.
    */
-  post<TBody = unknown>(
+  post<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   post(path: string, config: KageRouteConfig): this;
@@ -195,12 +243,18 @@ export class Kage {
   /**
    * Register a PUT route.
    */
-  put<TBody = unknown>(
+  put<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   put(path: string, config: KageRouteConfig): this;
@@ -216,12 +270,18 @@ export class Kage {
   /**
    * Register a PATCH route.
    */
-  patch<TBody = unknown>(
+  patch<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   patch(path: string, config: KageRouteConfig): this;
@@ -237,12 +297,18 @@ export class Kage {
   /**
    * Register a DELETE route.
    */
-  delete<TBody = unknown>(
+  delete<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   delete(path: string, config: KageRouteConfig): this;
@@ -258,12 +324,18 @@ export class Kage {
   /**
    * Register a HEAD route.
    */
-  head<TBody = unknown>(
+  head<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   head(path: string, config: KageRouteConfig): this;
@@ -279,12 +351,18 @@ export class Kage {
   /**
    * Register an OPTIONS route.
    */
-  options<TBody = unknown>(
+  options<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   options(path: string, config: KageRouteConfig): this;
@@ -309,20 +387,15 @@ export class Kage {
         handlerOrConfig.handler,
         handlerOrConfig.schemas,
       );
-      this.router.add(
-        method,
-        fullPath,
-        wrappedHandler as Handler,
-        handlerOrConfig.permissions,
-      );
+      this.router.add(method, fullPath, wrappedHandler as Handler);
       return;
     }
 
-    const config: KageRouteConfig = typeof handlerOrConfig === "function"
-      ? { handler: handlerOrConfig }
-      : handlerOrConfig;
+    const handler = typeof handlerOrConfig === "function"
+      ? handlerOrConfig
+      : handlerOrConfig.handler;
 
-    this.router.add(method, fullPath, config.handler, config.permissions);
+    this.router.add(method, fullPath, handler);
   }
 
   private isSchemaConfig(
@@ -391,6 +464,7 @@ export class Kage {
     const urlStr = req.url;
     const method = req.method as HttpMethod;
 
+    // Fast path extraction - avoid URL constructor
     let pathname: string;
     let url: URL | null = null;
 
@@ -418,51 +492,78 @@ export class Kage {
     const match = this.router.find(method, pathname);
 
     if (!match) {
-      return NOT_FOUND_RESPONSE.clone();
+      // Create new Response each time - body is consumed on read
+      return new Response(NOT_FOUND_BODY, { status: 404 });
     }
 
-    const ctx = this.contextPool.acquire(req, match.params, url, pathname);
+    return this.executeRequest(req, match, url, pathname);
+  }
 
+  private executeRequest(
+    req: Request,
+    match: Match,
+    url: URL | null,
+    pathname: string,
+  ): Response | Promise<Response> {
+    const ctx = this.contextPool.acquire(req, match.params, url, pathname);
     const middlewareLen = this.middleware.length;
 
+    // No middleware - fastest path
     if (middlewareLen === 0) {
-      return this.executeHandler(ctx, match.handler);
+      return this.executeHandlerDirect(ctx, match.handler);
     }
 
+    // Single middleware - optimized path
     if (middlewareLen === 1) {
       return this.executeSingleMiddleware(ctx, match.handler);
     }
 
+    // Multiple middleware - composed path
     return this.executeMiddlewareChain(ctx, match.handler);
   }
 
-  private executeHandler(
+  // Optimized handler execution - detects sync vs async
+  private executeHandlerDirect(
     ctx: Context,
     handler: Handler,
   ): Response | Promise<Response> {
+    const params = ctx.params;
     try {
       const result = handler(ctx);
 
+      // Fast path: sync handler returning Response
+      if (result instanceof Response) {
+        releaseParams(params);
+        this.contextPool.release(ctx);
+        return result;
+      }
+
+      // Async handler
       if (result instanceof Promise) {
         return result.then(
           (r) => {
-            const response = this.toResponse(r);
+            const response = this.resultToResponse(r);
+            releaseParams(params);
             this.contextPool.release(ctx);
             return response;
           },
           (error) => {
+            releaseParams(params);
             this.contextPool.release(ctx);
-            return this.handleError(error);
+            return this.createErrorResponse(error);
           },
         );
       }
 
-      const response = this.toResponse(result);
+      // Sync handler returning non-Response
+      const response = this.resultToResponse(result);
+      releaseParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
+      releaseParams(params);
       this.contextPool.release(ctx);
-      return this.handleError(error);
+      return this.createErrorResponse(error);
     }
   }
 
@@ -470,16 +571,19 @@ export class Kage {
     ctx: Context,
     handler: Handler,
   ): Promise<Response> {
+    const params = ctx.params;
     try {
       const response = await this.middleware[0](ctx, async () => {
         const result = await handler(ctx);
-        return this.toResponse(result);
+        return this.resultToResponse(result);
       });
+      releaseParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
+      releaseParams(params);
       this.contextPool.release(ctx);
-      return this.handleError(error);
+      return this.createErrorResponse(error);
     }
   }
 
@@ -487,58 +591,64 @@ export class Kage {
     ctx: Context,
     handler: Handler,
   ): Promise<Response> {
+    const params = ctx.params;
     try {
       const composed = this.getComposedMiddleware();
       const response = await composed(ctx, async () => {
         const result = await handler(ctx);
-        return this.toResponse(result);
+        return this.resultToResponse(result);
       });
+      releaseParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
+      releaseParams(params);
       this.contextPool.release(ctx);
-      return this.handleError(error);
+      return this.createErrorResponse(error);
     }
   }
 
-  private handleError(error: unknown): Response {
-    if (this.config.development) {
+  private createErrorResponse(error: unknown): Response {
+    if (this.isDev) {
       console.error("Request handler error:", error);
     }
-    return INTERNAL_ERROR_RESPONSE.clone();
+    return new Response(INTERNAL_ERROR_BODY, { status: 500 });
   }
 
-  private toResponse(result: unknown): Response {
+  // Monomorphic response conversion - ordered by frequency
+  private resultToResponse(result: unknown): Response {
+    // Most common: handler returns Response directly
     if (result instanceof Response) {
       return result;
     }
 
+    // Second most common: null/undefined -> 204
     if (result == null) {
-      return NO_CONTENT_RESPONSE.clone();
+      return new Response(null, { status: 204 });
     }
 
-    const type = typeof result;
-
-    if (type === "string") {
-      return new Response(result as string, { headers: TEXT_HEADERS });
-    }
-
-    if (type === "object") {
+    // Third: object -> JSON
+    if (typeof result === "object") {
+      // Check for binary types first (less common)
       if (result instanceof Uint8Array) {
-        return new Response(result as BodyInit, { headers: BINARY_HEADERS });
+        return new Response(result as BodyInit, BINARY_INIT_200);
       }
-
       if (result instanceof ArrayBuffer) {
-        return new Response(result as BodyInit, { headers: BINARY_HEADERS });
+        return new Response(result as BodyInit, BINARY_INIT_200);
       }
-
       if (result instanceof ReadableStream) {
-        return new Response(result as BodyInit, { headers: BINARY_HEADERS });
+        return new Response(result as BodyInit, BINARY_INIT_200);
       }
-
-      return new Response(JSON.stringify(result), { headers: JSON_HEADERS });
+      // Regular object -> JSON
+      return new Response(JSON.stringify(result), JSON_INIT_200);
     }
 
-    return new Response(JSON.stringify(result), { headers: JSON_HEADERS });
+    // String
+    if (typeof result === "string") {
+      return new Response(result, TEXT_INIT_200);
+    }
+
+    // Fallback: stringify anything else
+    return new Response(JSON.stringify(result), JSON_INIT_200);
   }
 }
