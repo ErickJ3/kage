@@ -5,7 +5,7 @@ Deno permission parsing and checking utilities for [Kage](https://jsr.io/@kage/c
 ## Install
 
 ```typescript
-import { parsePermission, checkPermission } from "jsr:@kage/permissions";
+import { checkPermission, parsePermission } from "jsr:@kage/permissions";
 ```
 
 ## License

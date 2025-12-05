@@ -5,7 +5,7 @@ Development utilities for [Kage](https://jsr.io/@kage/core) - file watcher, dev 
 ## Install
 
 ```typescript
-import { DevServer, createLogger } from "jsr:@kage/dev";
+import { createLogger, DevServer } from "jsr:@kage/dev";
 ```
 
 ## License
