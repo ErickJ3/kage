@@ -21,10 +21,6 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Publish @kage/permissions
-        run: deno publish --allow-dirty
-        working-directory: packages/permissions
-
       - name: Publish @kage/router
         run: deno publish --allow-dirty
         working-directory: packages/router

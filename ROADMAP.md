@@ -2,8 +2,8 @@
 
 ## Vision
 
-Build the definitive Deno-native framework for secure, multi-tenant APIs by
-leveraging Deno's unique capabilities that other runtimes cannot replicate.
+Build the fastest, most developer-friendly Deno-native framework by leveraging
+Deno's unique capabilities: native TypeScript, Web Workers, and Web Standards.
 
 ## Phases
 
@@ -17,23 +17,18 @@ leveraging Deno's unique capabilities that other runtimes cannot replicate.
   - [x] Path parameter extraction
   - [x] Wildcard and catch-all routes
   - [x] Route priority resolution
-- [x] Permission-aware routing system
-  - [x] Parse Deno permission flags
-  - [x] Declarative permissions per route
-  - [x] Runtime permission validation
-  - [x] Permission conflict detection
+- [x] Method chaining API
+  - [x] Fluent route registration (.get().post().listen())
 - [x] Context API and middleware system
   - [x] Request/response abstraction
   - [x] Middleware composition
   - [x] Error handling middleware
   - [x] Built-in middleware (cors, logger)
   - [x] Compression middleware
-- [x] Basic schema validation with Zod
+- [x] Schema validation with TypeBox
   - [x] Request body validation
   - [x] Query parameter validation
-  - [x] Response validation (development mode)
-  - [x] Type inference from schemas
-  - [x] Middleware-based validation
+  - [x] Full type inference from schemas
   - [x] Comprehensive test coverage
 - [x] Comprehensive test coverage (>90%)
   - [x] Router tests (100% coverage)
@@ -51,8 +46,8 @@ leveraging Deno's unique capabilities that other runtimes cannot replicate.
   - [x] Optimized middleware execution paths
   - [x] Achieved ~145k req/s without middleware, ~73k with middleware
 
-**Success points**: Framework demonstrates permission-aware routing with
-performance within 10% of Hono. **Exceeded: 27% faster than Hono**
+**Success points**: Framework demonstrates high performance with great DX.
+**Exceeded: 27% faster than Hono**
 
 ### Phase 2: Type Safety & Developer Experience (Current)
 
@@ -120,43 +115,7 @@ type annotations.
 **Success points**: Match or exceed Hono performance, add unique worker-based
 parallelism.
 
-### Phase 4: Multi-Tenancy & Enterprise
-
-**Goal**: Production-ready multi-tenant SaaS capabilities
-
-- [ ] Tenant resolution system
-  - Header-based resolution
-  - Subdomain resolution
-  - Path-based resolution
-  - Custom resolver functions
-- [ ] Tenant isolation
-  - Namespace separation
-  - Permission boundaries
-  - Resource quotas
-  - Data segregation
-- [ ] Deno KV multi-tenant namespacing
-  - Automatic key prefixing
-  - Tenant-scoped queries
-  - Cross-tenant protection
-- [ ] Rate limiting per tenant
-  - Token bucket algorithm
-  - Sliding window
-  - Distributed rate limiting
-  - Custom limit strategies
-- [ ] Audit logging
-  - Structured event logging
-  - Tenant action tracking
-  - Compliance support
-  - Log aggregation hooks
-- [ ] Billing integration hooks
-  - Usage metering
-  - Event-based billing
-  - Quota enforcement
-
-**Success points**: Deploy production multi-tenant application with isolated
-tenants and usage tracking.
-
-### Phase 5: Ecosystem & Adoption
+### Phase 4: Ecosystem & Adoption
 
 **Goal**: Comprehensive ecosystem and community growth
 
@@ -199,7 +158,7 @@ Performance targets (requests/second on standard hardware):
 - Simple route: >100k req/s
 - JSON response: >80k req/s
 - Validated route: >50k req/s
-- Multi-tenant route: >40k req/s
+- Worker-based route: >40k req/s
 
 Comparison benchmarks maintained against:
 
@@ -230,17 +189,10 @@ Hono's multi-runtime design prevents tight Deno integration. Permission-aware
 routing and transparent workers require runtime-specific APIs that would break
 Hono's abstraction.
 
-### Why Zod for validation?
+### Why TypeBox for validation?
 
-Zod is the TypeScript-native validation library with the best type inference.
-Alternatives like Ajv are faster but require code generation or lose type
-safety.
-
-### Why focus on multi-tenancy?
-
-Multi-tenant SaaS is a large, underserved market with specific technical
-requirements. Most frameworks treat it as an afterthought. Making it a
-first-class feature creates clear differentiation.
+TypeBox provides excellent type inference with better performance than Zod.
+It compiles schemas to efficient validation functions and is lighter weight.
 
 ## Contributing
 

@@ -9,7 +9,6 @@
  */
 
 import type { Handler, HttpMethod, Match, Route } from "~/types.ts";
-import type { Permission } from "@kage/permissions";
 
 const EMPTY_PARAMS: Record<string, string> = Object.freeze(
   Object.create(null),
@@ -50,12 +49,7 @@ export class Router {
    *
    * @throws {Error} If route is already registered or path doesn't start with /
    */
-  add(
-    method: HttpMethod,
-    path: string,
-    handler: Handler,
-    permissions?: Permission[],
-  ): void {
+  add(method: HttpMethod, path: string, handler: Handler): void {
     if (!path.startsWith("/")) {
       throw new Error(`Route path must start with /: ${path}`);
     }
@@ -74,7 +68,6 @@ export class Router {
       handler,
       paramNames,
       path,
-      permissions,
     };
 
     const isStatic = paramNames.length === 0 && !path.includes("*");

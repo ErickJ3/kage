@@ -1,23 +1,23 @@
 # Kage (影)
 
-A Deno-native web framework for speed and security.
+A Deno-native web framework focused on speed and developer experience.
 
 Pronounced "kahg" (rhymes with "lodge").
 
 ## Why Kage?
 
-Frameworks like Hono and Oak target multiple runtimes. Kage doesn't — it's built exclusively for Deno and takes full advantage of it: declarative permissions per route, transparent workers, and tenant isolation as first-class concepts.
+Frameworks like Hono and Oak target multiple runtimes. Kage doesn't — it's built exclusively for Deno and takes full advantage of it: native TypeScript, transparent workers, and maximum performance.
 
 ## Benchmarks
 
-| Scenario         | Kage       | Hono   | Oak    |
-| ---------------- | ---------- | ------ | ------ |
-| Simple route     | **56,572** | 46,862 | 24,688 |
-| Parameterized    | **57,340** | 42,703 | 25,852 |
-| JSON parsing     | **24,925** | 21,630 | 14,229 |
-| Middleware chain | **59,449** | 42,462 | 25,177 |
+| Scenario         | Kage        | Hono       | Oak        |
+| ---------------- | ----------- | ---------- | ---------- |
+| Simple route     | **97,583**  | 87,428     | 48,135     |
+| Parameterized    | **98,433**  | 86,335     | 47,709     |
+| JSON parsing     | **45,774**  | 41,221     | 26,451     |
+| Middleware chain | **109,522** | 78,552     | 47,238     |
 
-_req/s with oha (100 connections, 10s) on Intel i5-11300H_
+_req/s with oha (100 connections, 10s)_
 
 ## Installation
 
@@ -28,15 +28,18 @@ import { Kage } from "jsr:@kage/core";
 ## Example
 
 ```typescript
-import { Kage } from "@kage/core";
+import { Kage, t } from "@kage/core";
 
 new Kage()
-  .get("/users", {
-    permissions: ["net:api.example.com"], // optional
-    handler: async (ctx) => {
-      const users = await fetch("https://api.example.com/users");
-      return ctx.json(await users.json());
+  .get("/", (ctx) => ctx.json({ message: "Hello, Kage!" }))
+  .post("/users", {
+    schemas: {
+      body: t.Object({
+        name: t.String({ minLength: 1 }),
+        email: t.String({ format: "email" }),
+      }),
     },
+    handler: (ctx) => ctx.json({ id: crypto.randomUUID(), ...ctx.body }, 201),
   })
   .listen({ port: 8000 });
 ```

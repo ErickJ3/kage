@@ -2,9 +2,13 @@
  * Main Kage application class.
  */
 
-import { type Handler, type HttpMethod, Router } from "@kage/router";
-import type { Permission } from "@kage/permissions";
-import type { TSchema } from "@sinclair/typebox";
+import {
+  type Handler,
+  type HttpMethod,
+  type Match,
+  Router,
+} from "@kage/router";
+import type { Static, TSchema } from "@sinclair/typebox";
 import type { KageConfig, ListenOptions } from "~/app/types.ts";
 import { Context, ContextPool } from "~/context/mod.ts";
 import { compose, type Middleware } from "~/middleware/mod.ts";
@@ -13,10 +17,9 @@ import { wrapTypedHandler } from "~/routing/builder.ts";
 /** Handler function that receives a Context and returns a response. */
 export type KageHandler = (ctx: Context) => unknown | Promise<unknown>;
 
-/** Route configuration with handler and optional permissions. */
+/** Route configuration with handler. */
 export interface KageRouteConfig {
   handler: KageHandler;
-  permissions?: Permission[];
 }
 
 /** Context with validated data for schema routes. */
@@ -66,20 +69,41 @@ export type KageSchemaHandler<
   ctx: KageSchemaContext<TParams, TQuery, TBody>,
 ) => unknown | Promise<unknown>;
 
-/** Route configuration with schema validation. */
-export interface KageSchemaConfig<
-  TParams = Record<string, string>,
-  TQuery = Record<string, unknown>,
-  TBody = unknown,
+/** Infer type from schema or use default. */
+type InferSchema<T, Default = unknown> = T extends TSchema ? Static<T>
+  : Default;
+
+/** Schema configuration object. */
+export interface KageSchemas<
+  TBodySchema extends TSchema | undefined = undefined,
+  TQuerySchema extends TSchema | undefined = undefined,
+  TParamsSchema extends TSchema | undefined = undefined,
+  TResponseSchema extends TSchema | undefined = undefined,
 > {
-  schemas: {
-    body?: TSchema;
-    query?: TSchema;
-    params?: TSchema;
-    response?: TSchema;
-  };
-  handler: KageSchemaHandler<TParams, TQuery, TBody>;
-  permissions?: Permission[];
+  body?: TBodySchema;
+  query?: TQuerySchema;
+  params?: TParamsSchema;
+  response?: TResponseSchema;
+}
+
+/** Route configuration with schema validation and type inference. */
+export interface KageSchemaConfig<
+  TBodySchema extends TSchema | undefined = undefined,
+  TQuerySchema extends TSchema | undefined = undefined,
+  TParamsSchema extends TSchema | undefined = undefined,
+  TResponseSchema extends TSchema | undefined = undefined,
+> {
+  schemas: KageSchemas<
+    TBodySchema,
+    TQuerySchema,
+    TParamsSchema,
+    TResponseSchema
+  >;
+  handler: KageSchemaHandler<
+    InferSchema<TParamsSchema, Record<string, string>>,
+    InferSchema<TQuerySchema, Record<string, unknown>>,
+    InferSchema<TBodySchema, unknown>
+  >;
 }
 
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
@@ -153,12 +177,18 @@ export class Kage {
   /**
    * Register a GET route.
    */
-  get<TBody = unknown>(
+  get<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   get(path: string, config: KageRouteConfig): this;
@@ -174,12 +204,18 @@ export class Kage {
   /**
    * Register a POST route.
    */
-  post<TBody = unknown>(
+  post<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   post(path: string, config: KageRouteConfig): this;
@@ -195,12 +231,18 @@ export class Kage {
   /**
    * Register a PUT route.
    */
-  put<TBody = unknown>(
+  put<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   put(path: string, config: KageRouteConfig): this;
@@ -216,12 +258,18 @@ export class Kage {
   /**
    * Register a PATCH route.
    */
-  patch<TBody = unknown>(
+  patch<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   patch(path: string, config: KageRouteConfig): this;
@@ -237,12 +285,18 @@ export class Kage {
   /**
    * Register a DELETE route.
    */
-  delete<TBody = unknown>(
+  delete<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   delete(path: string, config: KageRouteConfig): this;
@@ -258,12 +312,18 @@ export class Kage {
   /**
    * Register a HEAD route.
    */
-  head<TBody = unknown>(
+  head<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   head(path: string, config: KageRouteConfig): this;
@@ -279,12 +339,18 @@ export class Kage {
   /**
    * Register an OPTIONS route.
    */
-  options<TBody = unknown>(
+  options<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     config: KageSchemaConfig<
-      Record<string, string>,
-      Record<string, unknown>,
-      TBody
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
     >,
   ): this;
   options(path: string, config: KageRouteConfig): this;
@@ -309,20 +375,15 @@ export class Kage {
         handlerOrConfig.handler,
         handlerOrConfig.schemas,
       );
-      this.router.add(
-        method,
-        fullPath,
-        wrappedHandler as Handler,
-        handlerOrConfig.permissions,
-      );
+      this.router.add(method, fullPath, wrappedHandler as Handler);
       return;
     }
 
-    const config: KageRouteConfig = typeof handlerOrConfig === "function"
-      ? { handler: handlerOrConfig }
-      : handlerOrConfig;
+    const handler = typeof handlerOrConfig === "function"
+      ? handlerOrConfig
+      : handlerOrConfig.handler;
 
-    this.router.add(method, fullPath, config.handler, config.permissions);
+    this.router.add(method, fullPath, handler);
   }
 
   private isSchemaConfig(
@@ -421,6 +482,15 @@ export class Kage {
       return NOT_FOUND_RESPONSE.clone();
     }
 
+    return this.executeRequest(req, match, url, pathname);
+  }
+
+  private executeRequest(
+    req: Request,
+    match: Match,
+    url: URL | null,
+    pathname: string,
+  ): Response | Promise<Response> {
     const ctx = this.contextPool.acquire(req, match.params, url, pathname);
 
     const middlewareLen = this.middleware.length;
