@@ -120,4 +120,4 @@ export function createLogger(options: {
   return logger;
 }
 
-export const defaultLogger = createLogger();
+export const defaultLogger: Logger = createLogger();
