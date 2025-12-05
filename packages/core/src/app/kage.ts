@@ -62,7 +62,9 @@ export type KageSchemaHandler<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
   TBody = unknown,
-> = (ctx: KageSchemaContext<TParams, TQuery, TBody>) => unknown | Promise<unknown>;
+> = (
+  ctx: KageSchemaContext<TParams, TQuery, TBody>,
+) => unknown | Promise<unknown>;
 
 /** Route configuration with schema validation. */
 export interface KageSchemaConfig<
@@ -151,7 +153,14 @@ export class Kage {
   /**
    * Register a GET route.
    */
-  get<TBody = unknown>(path: string, config: KageSchemaConfig<Record<string, string>, Record<string, unknown>, TBody>): this;
+  get<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
   get(path: string, config: KageRouteConfig): this;
   get(path: string, handler: KageHandler): this;
   get(
@@ -165,7 +174,14 @@ export class Kage {
   /**
    * Register a POST route.
    */
-  post<TBody = unknown>(path: string, config: KageSchemaConfig<Record<string, string>, Record<string, unknown>, TBody>): this;
+  post<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
   post(path: string, config: KageRouteConfig): this;
   post(path: string, handler: KageHandler): this;
   post(
@@ -179,7 +195,14 @@ export class Kage {
   /**
    * Register a PUT route.
    */
-  put<TBody = unknown>(path: string, config: KageSchemaConfig<Record<string, string>, Record<string, unknown>, TBody>): this;
+  put<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
   put(path: string, config: KageRouteConfig): this;
   put(path: string, handler: KageHandler): this;
   put(
@@ -193,7 +216,14 @@ export class Kage {
   /**
    * Register a PATCH route.
    */
-  patch<TBody = unknown>(path: string, config: KageSchemaConfig<Record<string, string>, Record<string, unknown>, TBody>): this;
+  patch<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
   patch(path: string, config: KageRouteConfig): this;
   patch(path: string, handler: KageHandler): this;
   patch(
@@ -207,7 +237,14 @@ export class Kage {
   /**
    * Register a DELETE route.
    */
-  delete<TBody = unknown>(path: string, config: KageSchemaConfig<Record<string, string>, Record<string, unknown>, TBody>): this;
+  delete<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
   delete(path: string, config: KageRouteConfig): this;
   delete(path: string, handler: KageHandler): this;
   delete(
@@ -221,7 +258,14 @@ export class Kage {
   /**
    * Register a HEAD route.
    */
-  head<TBody = unknown>(path: string, config: KageSchemaConfig<Record<string, string>, Record<string, unknown>, TBody>): this;
+  head<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
   head(path: string, config: KageRouteConfig): this;
   head(path: string, handler: KageHandler): this;
   head(
@@ -235,7 +279,14 @@ export class Kage {
   /**
    * Register an OPTIONS route.
    */
-  options<TBody = unknown>(path: string, config: KageSchemaConfig<Record<string, string>, Record<string, unknown>, TBody>): this;
+  options<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
   options(path: string, config: KageRouteConfig): this;
   options(path: string, handler: KageHandler): this;
   options(
