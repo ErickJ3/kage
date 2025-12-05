@@ -1,6 +1,6 @@
 {
   "name": "@kage/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
@@ -12,7 +12,13 @@
     "@kage/permissions": "jsr:@kage/permissions@^0.1.0"
   },
   "publish": {
-    "include": ["src/**/*.ts", "README.md", "LICENSE"],
-    "exclude": ["test/**/*"]
+    "include": [
+      "src/**/*.ts",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      "test/**/*"
+    ]
   }
 }
