@@ -195,8 +195,7 @@ describe("Kage", () => {
         ctx.response("Custom", {
           status: 201,
           headers: { "X-Custom": "value" },
-        }),
-      );
+        }));
 
       const handler = (
         app as unknown as {

@@ -11,13 +11,13 @@ Frameworks like Hono and Oak target multiple runtimes. Kage doesn't — it's bui
 ## Benchmarks
 
 | Scenario         | Kage       | Hono   | Oak    |
-|------------------|------------|--------|--------|
+| ---------------- | ---------- | ------ | ------ |
 | Simple route     | **56,572** | 46,862 | 24,688 |
 | Parameterized    | **57,340** | 42,703 | 25,852 |
 | JSON parsing     | **24,925** | 21,630 | 14,229 |
 | Middleware chain | **59,449** | 42,462 | 25,177 |
 
-*req/s with oha (100 connections, 10s) on Intel i5-11300H*
+_req/s with oha (100 connections, 10s) on Intel i5-11300H_
 
 ## Installation
 

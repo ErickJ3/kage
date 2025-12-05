@@ -102,14 +102,16 @@ async function startServer(framework: {
   const status = await Promise.race([
     process.status.then((s) => ({ exited: true, ...s })),
     new Promise<{ exited: false }>((resolve) =>
-      setTimeout(() => resolve({ exited: false }), 100),
+      setTimeout(() => resolve({ exited: false }), 100)
     ),
   ]);
 
   if (status.exited) {
     const stderr = await stderrPromise;
     throw new Error(
-      `${framework.name} server failed to start. Exit code: ${(status as { code: number }).code}\nStderr: ${stderr}`,
+      `${framework.name} server failed to start. Exit code: ${
+        (status as { code: number }).code
+      }\nStderr: ${stderr}`,
     );
   }
 
