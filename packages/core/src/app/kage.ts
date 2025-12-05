@@ -4,10 +4,10 @@
 
 import { type Handler, type HttpMethod, Router } from "@kage/router";
 import type { Permission } from "@kage/permissions";
+import type { TSchema } from "@sinclair/typebox";
 import type { KageConfig, ListenOptions } from "~/app/types.ts";
 import { Context, ContextPool } from "~/context/mod.ts";
 import { compose, type Middleware } from "~/middleware/mod.ts";
-import type { TypedRouteDefinition } from "~/routing/types.ts";
 import { wrapTypedHandler } from "~/routing/builder.ts";
 
 /** Handler function that receives a Context and returns a response. */
@@ -16,6 +16,69 @@ export type KageHandler = (ctx: Context) => unknown | Promise<unknown>;
 /** Route configuration with handler and optional permissions. */
 export interface KageRouteConfig {
   handler: KageHandler;
+  permissions?: Permission[];
+}
+
+/** Context with validated data for schema routes. */
+export interface KageSchemaContext<
+  TParams = Record<string, string>,
+  TQuery = Record<string, unknown>,
+  TBody = unknown,
+> {
+  readonly request: Request;
+  readonly params: TParams;
+  readonly method: string;
+  readonly headers: Headers;
+  readonly path: string;
+  readonly url: URL;
+  readonly query: TQuery;
+  readonly body: TBody;
+  readonly state: Record<string, unknown>;
+  json<T>(data: T, status?: number): Response;
+  text(text: string, status?: number): Response;
+  html(html: string, status?: number): Response;
+  redirect(url: string, status?: number): Response;
+  noContent(): Response;
+  notFound(message?: string): Response;
+  badRequest(message?: string): Response;
+  unauthorized(message?: string): Response;
+  forbidden(message?: string): Response;
+  internalError(message?: string): Response;
+  binary(
+    data: Uint8Array | ArrayBuffer,
+    contentType?: string,
+    status?: number,
+  ): Response;
+  stream(
+    stream: ReadableStream,
+    contentType?: string,
+    status?: number,
+  ): Response;
+  response(body?: BodyInit | null, init?: ResponseInit): Response;
+}
+
+/** Handler for schema-validated routes. */
+export type KageSchemaHandler<
+  TParams = Record<string, string>,
+  TQuery = Record<string, unknown>,
+  TBody = unknown,
+> = (
+  ctx: KageSchemaContext<TParams, TQuery, TBody>,
+) => unknown | Promise<unknown>;
+
+/** Route configuration with schema validation. */
+export interface KageSchemaConfig<
+  TParams = Record<string, string>,
+  TQuery = Record<string, unknown>,
+  TBody = unknown,
+> {
+  schemas: {
+    body?: TSchema;
+    query?: TSchema;
+    params?: TSchema;
+    response?: TSchema;
+  };
+  handler: KageSchemaHandler<TParams, TQuery, TBody>;
   permissions?: Permission[];
 }
 
@@ -90,102 +153,158 @@ export class Kage {
   /**
    * Register a GET route.
    */
-  get(path: string, handler: KageHandler): void;
-  get(path: string, config: KageRouteConfig): void;
-  get(path: string, config: TypedRouteDefinition): void;
+  get<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
+  get(path: string, config: KageRouteConfig): this;
+  get(path: string, handler: KageHandler): this;
   get(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): void {
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): this {
     this.addRoute("GET", path, handlerOrConfig);
+    return this;
   }
 
   /**
    * Register a POST route.
    */
-  post(path: string, handler: KageHandler): void;
-  post(path: string, config: KageRouteConfig): void;
-  post(path: string, config: TypedRouteDefinition): void;
+  post<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
+  post(path: string, config: KageRouteConfig): this;
+  post(path: string, handler: KageHandler): this;
   post(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): void {
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): this {
     this.addRoute("POST", path, handlerOrConfig);
+    return this;
   }
 
   /**
    * Register a PUT route.
    */
-  put(path: string, handler: KageHandler): void;
-  put(path: string, config: KageRouteConfig): void;
-  put(path: string, config: TypedRouteDefinition): void;
+  put<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
+  put(path: string, config: KageRouteConfig): this;
+  put(path: string, handler: KageHandler): this;
   put(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): void {
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): this {
     this.addRoute("PUT", path, handlerOrConfig);
+    return this;
   }
 
   /**
    * Register a PATCH route.
    */
-  patch(path: string, handler: KageHandler): void;
-  patch(path: string, config: KageRouteConfig): void;
-  patch(path: string, config: TypedRouteDefinition): void;
+  patch<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
+  patch(path: string, config: KageRouteConfig): this;
+  patch(path: string, handler: KageHandler): this;
   patch(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): void {
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): this {
     this.addRoute("PATCH", path, handlerOrConfig);
+    return this;
   }
 
   /**
    * Register a DELETE route.
    */
-  delete(path: string, handler: KageHandler): void;
-  delete(path: string, config: KageRouteConfig): void;
-  delete(path: string, config: TypedRouteDefinition): void;
+  delete<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
+  delete(path: string, config: KageRouteConfig): this;
+  delete(path: string, handler: KageHandler): this;
   delete(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): void {
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): this {
     this.addRoute("DELETE", path, handlerOrConfig);
+    return this;
   }
 
   /**
    * Register a HEAD route.
    */
-  head(path: string, handler: KageHandler): void;
-  head(path: string, config: KageRouteConfig): void;
-  head(path: string, config: TypedRouteDefinition): void;
+  head<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
+  head(path: string, config: KageRouteConfig): this;
+  head(path: string, handler: KageHandler): this;
   head(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): void {
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): this {
     this.addRoute("HEAD", path, handlerOrConfig);
+    return this;
   }
 
   /**
    * Register an OPTIONS route.
    */
-  options(path: string, handler: KageHandler): void;
-  options(path: string, config: KageRouteConfig): void;
-  options(path: string, config: TypedRouteDefinition): void;
+  options<TBody = unknown>(
+    path: string,
+    config: KageSchemaConfig<
+      Record<string, string>,
+      Record<string, unknown>,
+      TBody
+    >,
+  ): this;
+  options(path: string, config: KageRouteConfig): this;
+  options(path: string, handler: KageHandler): this;
   options(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): void {
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): this {
     this.addRoute("OPTIONS", path, handlerOrConfig);
+    return this;
   }
 
   private addRoute(
     method: HttpMethod,
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | TypedRouteDefinition,
+    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
   ): void {
     const fullPath = this.resolvePath(path);
 
-    if (this.isTypedRouteDefinition(handlerOrConfig)) {
+    if (this.isSchemaConfig(handlerOrConfig)) {
       const wrappedHandler = wrapTypedHandler(
         handlerOrConfig.handler,
         handlerOrConfig.schemas,
@@ -206,9 +325,9 @@ export class Kage {
     this.router.add(method, fullPath, config.handler, config.permissions);
   }
 
-  private isTypedRouteDefinition(
-    config: KageHandler | KageRouteConfig | TypedRouteDefinition,
-  ): config is TypedRouteDefinition {
+  private isSchemaConfig(
+    config: KageHandler | KageRouteConfig | KageSchemaConfig,
+  ): config is KageSchemaConfig {
     return (
       typeof config === "object" &&
       config !== null &&

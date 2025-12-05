@@ -25,6 +25,9 @@ export type {
   KageConfig,
   KageHandler,
   KageRouteConfig,
+  KageSchemaConfig,
+  KageSchemaContext,
+  KageSchemaHandler,
   ListenOptions,
 } from "~/app/mod.ts";
 
