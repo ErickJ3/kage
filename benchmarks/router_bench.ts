@@ -9,7 +9,7 @@
  * - Route registration overhead
  */
 
-import { Router } from "../packages/router/mod.ts";
+import { Router } from "../packages/router/src/mod.ts";
 
 /**
  * Benchmark: Static route lookup
@@ -170,11 +170,7 @@ Deno.bench("router - realistic API lookup", () => {
   router.add("POST", "/users/:userId/posts", () => ({}));
 
   // Deep nesting
-  router.add(
-    "GET",
-    "/orgs/:orgId/teams/:teamId/members/:memberId",
-    () => ({}),
-  );
+  router.add("GET", "/orgs/:orgId/teams/:teamId/members/:memberId", () => ({}));
 
   // Wildcard
   router.add("GET", "/static/*", () => ({}));

@@ -7,7 +7,7 @@
  *   deno run --allow-net examples/middleware_demo.ts
  */
 
-import type { Context } from "../packages/core/mod.ts";
+import type { Context } from "../packages/core/src/mod.ts";
 import { Kage } from "../mod.ts";
 
 const app = new Kage({

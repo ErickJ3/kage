@@ -1,49 +1,41 @@
-/**
- * Schema validation demonstration with Zod.
- *
- * Run with:
- *   deno run --allow-net examples/schema_demo.ts
- */
-
-import { type Context, Kage } from "../mod.ts";
-import { validateSchema, z } from "../packages/schema/mod.ts";
+import { type Context, Kage, t } from "../mod.ts";
+import { type Infer, validateSchema } from "../packages/schema/src/mod.ts";
 
 const app = new Kage({ development: true });
 
-// User schema with validation rules
-const userSchema = z.object({
-  name: z.string().min(1).max(100),
-  email: z.string().email(),
-  age: z.number().int().positive().max(150).optional(),
-  tags: z.array(z.string()).optional(),
+const userSchema = t.Object({
+  name: t.String({ minLength: 1, maxLength: 100 }),
+  email: t.String({ format: "email" }),
+  age: t.Optional(t.Integer({ minimum: 0, maximum: 150 })),
+  tags: t.Optional(t.Array(t.String())),
 });
 
-// Create user with schema validation
 app.use(validateSchema({ body: userSchema }));
 app.post("/users", (ctx: Context) => {
-  // Body is automatically validated - access from state
-  const user = ctx.state.validatedBody as z.infer<typeof userSchema>;
+  const user = ctx.state.validatedBody as Infer<typeof userSchema>;
 
-  return ctx.json({
-    created: true,
-    user: {
-      ...user,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+  return ctx.json(
+    {
+      created: true,
+      user: {
+        ...user,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      },
     },
-  }, 201);
+    201,
+  );
 });
 
-// Query validation example
-const searchSchema = z.object({
-  q: z.string().min(1),
-  limit: z.string().regex(/^\d+$/).optional(),
-  offset: z.string().regex(/^\d+$/).optional(),
+const searchSchema = t.Object({
+  q: t.String({ minLength: 1 }),
+  limit: t.Optional(t.String({ pattern: "^\\d+$" })),
+  offset: t.Optional(t.String({ pattern: "^\\d+$" })),
 });
 
 app.use(validateSchema({ query: searchSchema }));
 app.get("/search", (ctx: Context) => {
-  const query = ctx.state.validatedQuery as z.infer<typeof searchSchema>;
+  const query = ctx.state.validatedQuery as Infer<typeof searchSchema>;
 
   return ctx.json({
     query: query.q,
@@ -53,14 +45,13 @@ app.get("/search", (ctx: Context) => {
   });
 });
 
-// Path params validation
-const userParamsSchema = z.object({
-  id: z.string().uuid(),
+const userParamsSchema = t.Object({
+  id: t.String({ format: "uuid" }),
 });
 
 app.use(validateSchema({ params: userParamsSchema }));
 app.get("/users/:id", (ctx: Context) => {
-  const params = ctx.state.validatedParams as z.infer<typeof userParamsSchema>;
+  const params = ctx.state.validatedParams as Infer<typeof userParamsSchema>;
 
   return ctx.json({
     id: params.id,

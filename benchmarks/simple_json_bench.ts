@@ -2,7 +2,7 @@
  * Simple JSON benchmark - no middleware, just return array of users
  */
 
-import { Kage } from "../packages/core/mod.ts";
+import { Kage } from "../packages/core/src/mod.ts";
 
 const users = [
   { id: 1, name: "Alice", email: "alice@example.com" },

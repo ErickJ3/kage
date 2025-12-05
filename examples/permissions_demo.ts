@@ -61,11 +61,7 @@ app.get("/config", {
 
 // Route with multiple permission types
 app.post("/upload", {
-  permissions: [
-    "read:/tmp",
-    "write:/uploads",
-    "net:storage.example.com",
-  ],
+  permissions: ["read:/tmp", "write:/uploads", "net:storage.example.com"],
   handler: (ctx: Context) => {
     // This route needs:
     // - Read access to /tmp (to read uploaded file)
@@ -100,11 +96,7 @@ app.get("/permissions-info", () => {
       },
       {
         route: "/upload",
-        permissions: [
-          "read:/tmp",
-          "write:/uploads",
-          "net:storage.example.com",
-        ],
+        permissions: ["read:/tmp", "write:/uploads", "net:storage.example.com"],
         description: "Requires multiple permission types",
       },
     ],

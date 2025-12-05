@@ -1,4 +1,4 @@
-# Kage
+# Kage (影)
 
 A Deno-native web framework for secure, multi-tenant APIs.
 
@@ -22,14 +22,13 @@ Frameworks like Hono and Oak target multiple runtimes. Kage doesn't — it's bui
 ## Installation
 
 ```typescript
-import { Kage } from "jsr:@kage/core";
+import { Kage, t } from "jsr:@kage/core";
 ```
 
 ## Example
 
 ```typescript
-import { Kage } from "@kage/core";
-import { z } from "zod";
+import { Kage, t } from "@kage/core";
 
 const app = new Kage();
 
@@ -44,14 +43,8 @@ app.get("/users", {
 
 // Route with schema validation
 app.post("/users", {
-  body: z.object({
-    name: z.string(),
-    email: z.string().email(),
-  }),
-  response: z.object({
-    id: z.string(),
-    createdAt: z.date(),
-  }),
+  body: createUserSchema,
+  response: userResponseSchema,
   handler: async (ctx) => {
     const user = ctx.body; // fully typed
     return { id: crypto.randomUUID(), createdAt: new Date() };

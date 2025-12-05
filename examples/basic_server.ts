@@ -16,32 +16,28 @@ app.get("/", (ctx) =>
   ctx.json({
     message: "Welcome to Kage!",
     version: "0.1.0",
-  }),
-);
+  }));
 
 // Route with parameter
 app.get("/users/:id", (ctx) =>
   ctx.json({
     userId: ctx.params.id,
     name: `User ${ctx.params.id}`,
-  }),
-);
+  }));
 
 // Multiple parameters
 app.get("/orgs/:orgId/repos/:repoId", (ctx) =>
   ctx.json({
     organization: ctx.params.orgId,
     repository: ctx.params.repoId,
-  }),
-);
+  }));
 
 // POST route
 app.post("/users", (ctx) =>
   ctx.json({
     created: true,
     id: crypto.randomUUID(),
-  }),
-);
+  }));
 
 // Response object
 app.get("/custom", (ctx) => {

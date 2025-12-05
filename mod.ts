@@ -16,7 +16,7 @@
  */
 
 // Core framework exports
-export * from "./packages/core/mod.ts";
+export * from "./packages/core/src/mod.ts";
 
 // Router exports
-export * from "./packages/router/mod.ts";
+export * from "./packages/router/src/mod.ts";
