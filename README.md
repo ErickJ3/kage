@@ -1,4 +1,4 @@
-# Kage (影)
+# Kage (カゲ)
 
 A Deno-native web framework focused on speed and developer experience.
 
