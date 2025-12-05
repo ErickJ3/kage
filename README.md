@@ -1,6 +1,6 @@
 # Kage (影)
 
-A Deno-native web framework for secure, multi-tenant APIs.
+A Deno-native web framework for speed and security
 
 Pronounced "kahg" (rhymes with "lodge").
 
