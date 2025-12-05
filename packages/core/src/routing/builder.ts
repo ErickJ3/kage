@@ -45,8 +45,8 @@ import type {
 
 function createTypedContext<TParams, TQuery, TBody>(
   ctx: Context,
-  validatedQuery: TQuery,
-  validatedBody: TBody,
+  query: TQuery,
+  body: TBody,
 ): TypedContext<TParams, TQuery, TBody> {
   return {
     request: ctx.request,
@@ -57,8 +57,8 @@ function createTypedContext<TParams, TQuery, TBody>(
     get url() {
       return ctx.url;
     },
-    validatedQuery,
-    validatedBody,
+    query,
+    body,
     state: ctx.state,
     json: ctx.json.bind(ctx),
     text: ctx.text.bind(ctx),
@@ -125,7 +125,7 @@ export function createRoute<
 }
 
 export function wrapTypedHandler(
-  handler: TypedHandler,
+  handler: (ctx: TypedContext) => unknown | Promise<unknown>,
   schemas: TypedSchemaConfig,
 ): (ctx: Context) => Promise<Response | unknown> {
   return async (ctx: Context) => {

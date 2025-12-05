@@ -34,8 +34,8 @@ export interface TypedContext<
   readonly headers: Headers;
   readonly path: string;
   readonly url: URL;
-  readonly validatedQuery: TQuery;
-  readonly validatedBody: TBody;
+  readonly query: TQuery;
+  readonly body: TBody;
   readonly state: Record<string, unknown>;
 
   json<T>(data: T, status?: number): Response;
