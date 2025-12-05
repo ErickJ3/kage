@@ -1,36 +1,23 @@
 # Kage
 
-Pronounced "kahg" (like "lodge" but with a "k"). The Deno-native framework for
-secure, scalable multi-tenant APIs.
+A Deno-native web framework for secure, multi-tenant APIs.
 
-## Overview
+Pronounced "kahg" (rhymes with "lodge").
 
-Kage is a TypeScript-first web framework built exclusively for Deno that
-leverages its unique security model and runtime capabilities. Unlike
-multi-runtime frameworks, Kage embraces Deno-specific features to provide
-permission-aware routing, transparent workers, and first-class multi-tenancy
-support.
+## Why Kage?
 
-## Core Philosophy
+Frameworks like Hono and Oak target multiple runtimes. Kage doesn't — it's built exclusively for Deno and takes full advantage of it: declarative permissions per route, transparent workers, and tenant isolation as first-class concepts.
 
-- **Security by design**: Declarative permissions at the route level
-- **Type safety**: End-to-end TypeScript without code generation
-- **Edge-first**: Optimized for Deno Deploy and edge runtimes
-- **Multi-tenant native**: Isolation and namespacing as primitives
-- **Zero compromise**: Performance competitive with fastest frameworks
+## Benchmarks
 
-## Features
+| Scenario         | Kage       | Hono   | Oak    |
+|------------------|------------|--------|--------|
+| Simple route     | **88,893** | 70,420 | 37,608 |
+| Parameterized    | **84,934** | 69,456 | 39,816 |
+| JSON parsing     | **36,220** | 33,532 | 21,025 |
+| Middleware chain | **85,140** | 62,547 | 40,377 |
 
-- Permission-aware routing with granular Deno permissions per route
-- Schema-driven validation with automatic type inference
-- Transparent Web Workers for parallel execution
-- Multi-tenant isolation with namespace support
-- Built for edge deployment on Deno Deploy
-- Minimal dependencies, maximum performance
-
-## Status
-
-Early development. Not ready for production use.
+*req/s with oha (100 connections, 10s)*
 
 ## Installation
 
@@ -38,7 +25,7 @@ Early development. Not ready for production use.
 import { Kage } from "jsr:@kage/core";
 ```
 
-## Quick Start
+## Example
 
 ```typescript
 import { Kage } from "@kage/core";
@@ -46,7 +33,7 @@ import { z } from "zod";
 
 const app = new Kage();
 
-// Permission-aware route
+// Route with explicit permissions
 app.get("/users", {
   permissions: ["net:api.example.com"],
   handler: async (ctx) => {
@@ -55,7 +42,7 @@ app.get("/users", {
   },
 });
 
-// Schema-validated route
+// Route with schema validation
 app.post("/users", {
   body: z.object({
     name: z.string(),
@@ -66,7 +53,7 @@ app.post("/users", {
     createdAt: z.date(),
   }),
   handler: async (ctx) => {
-    const user = ctx.body; // Fully typed
+    const user = ctx.body; // fully typed
     return { id: crypto.randomUUID(), createdAt: new Date() };
   },
 });
@@ -77,29 +64,17 @@ app.listen({ port: 8000 });
 ## Development
 
 ```bash
-# Run tests
-deno task test
-
-# Run tests in watch mode
-deno task test:watch
-
-# Run benchmarks
-deno task bench
-
-# Type check
-deno task check
-
-# Format code
-deno task fmt
-
-# Lint code
-deno task lint
+deno task test        # run tests
+deno task test:watch  # watch mode
+deno task bench       # benchmarks
+deno task check       # type check
+deno task fmt         # format
+deno task lint        # lint
 ```
 
-## Contributing
+## Status
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for development guidelines and
-architecture decisions.
+Early development. Not production-ready.
 
 ## License
 
