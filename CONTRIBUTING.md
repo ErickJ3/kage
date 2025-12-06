@@ -100,7 +100,7 @@ describe("Router", () => {
 
 #### Test Files
 
-- Use `.spec.ts` suffix for test files (e.g., `router.spec.ts`)
+- Use `.test.ts` suffix for test files (e.g., `router.test.ts`)
 - Use `.bench.ts` suffix for benchmark files (e.g., `router.bench.ts`)
 - Tests live in `test/` directory within each package
 - Integration tests in `tests/` directory

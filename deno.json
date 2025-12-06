@@ -9,9 +9,6 @@
     "./packages/workers",
     "./benchmarks"
   ],
-  "test": {
-    "include": ["packages/*/test/**/*.spec.ts"]
-  },
   "bench": {
     "include": ["benchmarks/**/*.bench.ts"]
   },
