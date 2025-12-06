@@ -7,7 +7,6 @@
     "./packages/router",
     "./packages/schema",
     "./packages/workers",
-    "./packages/dev",
     "./benchmarks"
   ],
   "tasks": {
