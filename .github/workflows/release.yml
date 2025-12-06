@@ -32,7 +32,3 @@ jobs:
       - name: Publish @kage/schema
         run: deno publish --allow-dirty
         working-directory: packages/schema
-
-      - name: Publish @kage/dev
-        run: deno publish --allow-dirty
-        working-directory: packages/dev

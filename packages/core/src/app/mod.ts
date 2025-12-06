@@ -10,4 +10,11 @@ export type {
   KageSchemaContext,
   KageSchemaHandler,
 } from "~/app/kage.ts";
-export type { KageConfig, ListenOptions } from "~/app/types.ts";
+export type {
+  KageConfig,
+  ListenOptions,
+  Logger,
+  LoggerConfig,
+  LogLevel,
+} from "~/app/types.ts";
+export { createLogger } from "~/app/logger.ts";
