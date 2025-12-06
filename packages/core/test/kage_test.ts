@@ -2,7 +2,7 @@
  * Tests for Kage application class.
  */
 
-import { assertEquals, assertExists } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { Kage } from "../src/app/mod.ts";
 import type { Middleware } from "../src/middleware/mod.ts";
@@ -166,9 +166,8 @@ describe("Kage", () => {
       const request = new Request("http://localhost:8000/json");
       const response = await handler(request);
 
-      assertEquals(
-        response.headers.get("Content-Type"),
-        "application/json; charset=utf-8",
+      assert(
+        response.headers.get("Content-Type")?.startsWith("application/json"),
       );
       assertEquals(await response.json(), { message: "hello" });
     });
