@@ -3,11 +3,15 @@
  */
 
 export type {
-  ListenInfo,
-  Plugin,
-  PluginConfig,
-  PluginContext,
-  PluginHooks,
+  DeriveContext,
+  DeriveFn,
+  GroupConfig,
+  OnAfterHandleHook,
+  OnBeforeHandleHook,
+  OnErrorHook,
+  OnRequestHook,
+  OnResponseHook,
+  PluginFn,
+  PluginSystemState,
+  ScopeOptions,
 } from "~/plugins/types.ts";
-export { PluginManager } from "~/plugins/manager.ts";
-export { composePlugins, definePlugin } from "~/plugins/compose.ts";

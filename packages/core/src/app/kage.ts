@@ -21,16 +21,36 @@ import type {
 import { Context, ContextPool } from "~/context/mod.ts";
 import { compose, type Middleware } from "~/middleware/mod.ts";
 import { wrapTypedHandler } from "~/routing/builder.ts";
+import type {
+  DeriveFn,
+  OnAfterHandleHook,
+  OnBeforeHandleHook,
+  OnErrorHook,
+  OnRequestHook,
+  OnResponseHook,
+  PluginFn,
+  PluginSystemState,
+} from "~/plugins/types.ts";
 
-/** Handler function that receives a Context and returns a response. */
-export type KageHandler = (ctx: Context) => unknown | Promise<unknown>;
+// deno-lint-ignore ban-types
+type EmptyObject = {};
 
-/** Route configuration with handler. */
-export interface KageRouteConfig {
-  handler: KageHandler;
+export type KageHandler<
+  TDecorators extends Record<string, unknown> = EmptyObject,
+  TState extends Record<string, unknown> = EmptyObject,
+  TDerived extends Record<string, unknown> = EmptyObject,
+> = (
+  ctx: Context & TDecorators & { store: TState } & TDerived,
+) => unknown | Promise<unknown>;
+
+export interface KageRouteConfig<
+  TDecorators extends Record<string, unknown> = EmptyObject,
+  TState extends Record<string, unknown> = EmptyObject,
+  TDerived extends Record<string, unknown> = EmptyObject,
+> {
+  handler: KageHandler<TDecorators, TState, TDerived>;
 }
 
-/** Context with validated data for schema routes. */
 export interface KageSchemaContext<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
@@ -45,6 +65,7 @@ export interface KageSchemaContext<
   readonly query: TQuery;
   readonly body: TBody;
   readonly state: Record<string, unknown>;
+  readonly store: Record<string, unknown>;
   json<T>(data: T, status?: number): Response;
   text(text: string, status?: number): Response;
   html(html: string, status?: number): Response;
@@ -68,7 +89,6 @@ export interface KageSchemaContext<
   response(body?: BodyInit | null, init?: ResponseInit): Response;
 }
 
-/** Handler for schema-validated routes. */
 export type KageSchemaHandler<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
@@ -77,11 +97,9 @@ export type KageSchemaHandler<
   ctx: KageSchemaContext<TParams, TQuery, TBody>,
 ) => unknown | Promise<unknown>;
 
-/** Infer type from schema or use default. */
 type InferSchema<T, Default = unknown> = T extends TSchema ? Static<T>
   : Default;
 
-/** Schema configuration object. */
 export interface KageSchemas<
   TBodySchema extends TSchema | undefined = undefined,
   TQuerySchema extends TSchema | undefined = undefined,
@@ -94,7 +112,6 @@ export interface KageSchemas<
   response?: TResponseSchema;
 }
 
-/** Route configuration with schema validation and type inference. */
 export interface KageSchemaConfig<
   TBodySchema extends TSchema | undefined = undefined,
   TQuerySchema extends TSchema | undefined = undefined,
@@ -114,42 +131,44 @@ export interface KageSchemaConfig<
   >;
 }
 
-// Pre-computed headers for monomorphic response creation
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const OCTET_CONTENT_TYPE = "application/octet-stream";
 
-// Frozen header objects - reused across all responses
 const JSON_HEADERS: HeadersInit = { "Content-Type": JSON_CONTENT_TYPE };
 const TEXT_HEADERS: HeadersInit = { "Content-Type": TEXT_CONTENT_TYPE };
 const BINARY_HEADERS: HeadersInit = { "Content-Type": OCTET_CONTENT_TYPE };
 
-// Pre-allocated response init objects for common status codes
 const JSON_INIT_200: ResponseInit = { headers: JSON_HEADERS };
 const TEXT_INIT_200: ResponseInit = { headers: TEXT_HEADERS };
 const BINARY_INIT_200: ResponseInit = { headers: BINARY_HEADERS };
 
-// Static responses
 const NOT_FOUND_BODY = "Not Found";
 const INTERNAL_ERROR_BODY = "Internal Server Error";
 
 /**
- * Kage application class.
+ * Kage application with type-safe plugin system.
  *
  * @example
  * ```typescript
- * const app = new Kage();
- *
- * app.use(logger());
- * app.use(cors());
- *
- * app.get("/users", (ctx) => ctx.json({ users: [] }));
- * app.post("/users", (ctx) => ctx.json({ created: true }));
- *
- * await app.listen({ port: 8000 });
+ * const app = new Kage()
+ *   .decorate("db", new Database())
+ *   .state("counter", 0)
+ *   .derive(({ headers }) => ({
+ *     auth: headers.get("authorization"),
+ *   }))
+ *   .get("/", (ctx) => {
+ *     ctx.db;      // Database
+ *     ctx.store.counter; // number
+ *     ctx.auth;    // string | null
+ *   });
  * ```
  */
-export class Kage {
+export class Kage<
+  TDecorators extends Record<string, unknown> = EmptyObject,
+  TState extends Record<string, unknown> = EmptyObject,
+  TDerived extends Record<string, unknown> = EmptyObject,
+> {
   private router: RadixRouter;
   private config: KageConfig;
   private middleware: Middleware[];
@@ -160,6 +179,9 @@ export class Kage {
   private isDev: boolean;
   readonly log: Logger | undefined;
 
+  private pluginState: PluginSystemState<TDecorators, TState>;
+  private basePath: string;
+
   constructor(config: KageConfig = {}) {
     this.router = new RadixRouter();
     this.middleware = [];
@@ -168,10 +190,22 @@ export class Kage {
       basePath: "/",
       ...config,
     };
+    this.basePath = this.config.basePath ?? "/";
     this.isDev = this.config.development ?? false;
     this.log = this.initLogger(config.logger);
     this.contextPool = new ContextPool(256);
     this.contextPool.preallocate(64);
+
+    this.pluginState = {
+      decorators: {} as TDecorators,
+      state: {} as TState,
+      deriveFns: [],
+      onRequestHooks: [],
+      onResponseHooks: [],
+      onErrorHooks: [],
+      onBeforeHandleHooks: [],
+      onAfterHandleHooks: [],
+    };
   }
 
   private initLogger(
@@ -200,11 +234,268 @@ export class Kage {
   }
 
   /**
-   * Add global middleware to the application.
+   * Add an immutable singleton value to all handlers.
+   * Decorated values are available on the context and are set once at startup.
+   *
+   * @example
+   * ```typescript
+   * const app = new Kage()
+   *   .decorate("db", new Database())
+   *   .decorate("cache", new Cache())
+   *   .get("/users", (ctx) => {
+   *     const users = ctx.db.query("SELECT * FROM users");
+   *     return ctx.json(users);
+   *   });
+   * ```
    */
-  use(middleware: Middleware): this {
-    this.middleware.push(middleware);
+  decorate<K extends string, V>(
+    key: K,
+    value: V,
+  ): Kage<TDecorators & { [P in K]: V }, TState, TDerived> {
+    const newDecorators = {
+      ...this.pluginState.decorators,
+      [key]: value,
+    } as TDecorators & { [P in K]: V };
+
+    this.pluginState.decorators = newDecorators as TDecorators;
+
+    return this as unknown as Kage<
+      TDecorators & { [P in K]: V },
+      TState,
+      TDerived
+    >;
+  }
+
+  /**
+   * Add mutable global state accessible via ctx.store.
+   * State is shared across all requests and can be modified.
+   *
+   * @example
+   * ```typescript
+   * const app = new Kage()
+   *   .state("requestCount", 0)
+   *   .get("/", (ctx) => {
+   *     ctx.store.requestCount++;
+   *     return ctx.json({ count: ctx.store.requestCount });
+   *   });
+   * ```
+   */
+  state<K extends string, V>(
+    key: K,
+    initialValue: V,
+  ): Kage<TDecorators, TState & { [P in K]: V }, TDerived> {
+    const newState = {
+      ...this.pluginState.state,
+      [key]: initialValue,
+    } as TState & { [P in K]: V };
+
+    this.pluginState.state = newState as TState;
+
+    return this as unknown as Kage<
+      TDecorators,
+      TState & { [P in K]: V },
+      TDerived
+    >;
+  }
+
+  /**
+   * Derive values from request context.
+   * Derive functions are called once per request and have access to headers, params, etc.
+   *
+   * @example
+   * ```typescript
+   * const app = new Kage()
+   *   .derive(({ headers }) => ({
+   *     userId: headers.get("x-user-id"),
+   *     lang: headers.get("accept-language")?.split(",")[0] ?? "en",
+   *   }))
+   *   .get("/profile", (ctx) => {
+   *     return ctx.json({ userId: ctx.userId, lang: ctx.lang });
+   *   });
+   * ```
+   */
+  derive<TNew extends Record<string, unknown>>(
+    fn: DeriveFn<TNew>,
+  ): Kage<TDecorators, TState, TDerived & TNew> {
+    this.pluginState.deriveFns.push(fn as DeriveFn<Record<string, unknown>>);
+
+    return this as unknown as Kage<TDecorators, TState, TDerived & TNew>;
+  }
+
+  /**
+   * Add middleware to the application.
+   *
+   * @example
+   * ```typescript
+   * const app = new Kage()
+   *   .use(async (ctx, next) => {
+   *     console.log("Before handler");
+   *     const response = await next();
+   *     console.log("After handler");
+   *     return response;
+   *   });
+   * ```
+   */
+  use(middleware: Middleware): this;
+
+  /**
+   * Apply a plugin function to this app instance.
+   * Plugins can add decorators, state, derived values, routes, and middleware.
+   *
+   * @example
+   * ```typescript
+   * function authPlugin<T extends Kage>(app: T) {
+   *   return app
+   *     .decorate("jwt", new JWTService())
+   *     .derive(({ headers }) => ({
+   *       user: verifyToken(headers.get("authorization")),
+   *     }));
+   * }
+   *
+   * const app = new Kage()
+   *   .use(authPlugin)
+   *   .get("/me", (ctx) => ctx.json(ctx.user));
+   * ```
+   */
+  use<
+    TResult extends Kage<
+      Record<string, unknown>,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >,
+  >(
+    plugin: PluginFn<this, TResult>,
+  ): TResult;
+
+  use<
+    TResult extends Kage<
+      Record<string, unknown>,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >,
+  >(
+    pluginOrMiddleware: PluginFn<this, TResult> | Middleware,
+  ): this | TResult {
+    // Check if it's a middleware (takes ctx and next - 2 parameters)
+    if (
+      typeof pluginOrMiddleware === "function" &&
+      pluginOrMiddleware.length === 2
+    ) {
+      this.middleware.push(pluginOrMiddleware as Middleware);
+      this.composedMiddleware = null;
+      return this;
+    }
+
+    // It's a plugin function (takes 1 parameter - the app)
+    if (
+      typeof pluginOrMiddleware === "function" &&
+      pluginOrMiddleware.length === 1
+    ) {
+      return (pluginOrMiddleware as PluginFn<this, TResult>)(this);
+    }
+
+    // Fallback: treat as middleware
+    this.middleware.push(pluginOrMiddleware as Middleware);
     this.composedMiddleware = null;
+    return this;
+  }
+
+  /**
+   * Create a route group with a prefix and optional scoped plugins.
+   *
+   * @example
+   * ```typescript
+   * const app = new Kage()
+   *   .group("/api", (api) =>
+   *     api
+   *       .derive(({ headers }) => ({
+   *         apiKey: headers.get("x-api-key"),
+   *       }))
+   *       .get("/users", (ctx) => ctx.json({ apiKey: ctx.apiKey }))
+   *   )
+   *   .get("/health", (ctx) => ctx.json({ status: "ok" }));
+   * ```
+   */
+  group<
+    TGroupDecorators extends Record<string, unknown>,
+    TGroupState extends Record<string, unknown>,
+    TGroupDerived extends Record<string, unknown>,
+  >(
+    prefix: string,
+    configure: (
+      group: KageGroup<TDecorators, TState, TDerived>,
+    ) => KageGroup<
+      TDecorators & TGroupDecorators,
+      TState & TGroupState,
+      TDerived & TGroupDerived
+    >,
+  ): this {
+    const group = new KageGroup<TDecorators, TState, TDerived>(
+      this,
+      this.normalizePath(this.basePath, prefix),
+      { ...this.pluginState },
+    );
+
+    const configuredGroup = configure(group);
+    configuredGroup.applyToParent();
+
+    return this;
+  }
+
+  /**
+   * Register a hook that runs before route matching.
+   * Can return a Response to short-circuit, or modify the Request.
+   */
+  onRequest(hook: OnRequestHook): this {
+    this.pluginState.onRequestHooks.push(hook);
+    return this;
+  }
+
+  /**
+   * Register a hook that runs after handler execution.
+   * Can transform the response.
+   */
+  onResponse(hook: OnResponseHook): this {
+    this.pluginState.onResponseHooks.push(hook);
+    return this;
+  }
+
+  /**
+   * Register an error handler hook.
+   * Return a Response to handle the error, or null to pass to next handler.
+   */
+  onError(hook: OnErrorHook): this {
+    this.pluginState.onErrorHooks.push(hook);
+    return this;
+  }
+
+  /**
+   * Register a hook that runs before handler execution.
+   * Can return a Response to short-circuit.
+   */
+  onBeforeHandle(
+    hook: OnBeforeHandleHook<
+      Context & TDecorators & { store: TState } & TDerived
+    >,
+  ): this {
+    this.pluginState.onBeforeHandleHooks.push(
+      hook as OnBeforeHandleHook<unknown>,
+    );
+    return this;
+  }
+
+  /**
+   * Register a hook that runs after handler execution.
+   * Can transform the response.
+   */
+  onAfterHandle(
+    hook: OnAfterHandleHook<
+      Context & TDecorators & { store: TState } & TDerived
+    >,
+  ): this {
+    this.pluginState.onAfterHandleHooks.push(
+      hook as OnAfterHandleHook<unknown>,
+    );
     return this;
   }
 
@@ -218,9 +509,6 @@ export class Kage {
     return this.composedMiddleware;
   }
 
-  /**
-   * Register a GET route.
-   */
   get<
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
@@ -235,19 +523,22 @@ export class Kage {
       TResponseSchema
     >,
   ): this;
-  get(path: string, config: KageRouteConfig): this;
-  get(path: string, handler: KageHandler): this;
   get(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  ): this;
+  get(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  get(
+    path: string,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): this {
     this.addRoute("GET", path, handlerOrConfig);
     return this;
   }
 
-  /**
-   * Register a POST route.
-   */
   post<
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
@@ -262,19 +553,22 @@ export class Kage {
       TResponseSchema
     >,
   ): this;
-  post(path: string, config: KageRouteConfig): this;
-  post(path: string, handler: KageHandler): this;
   post(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  ): this;
+  post(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  post(
+    path: string,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): this {
     this.addRoute("POST", path, handlerOrConfig);
     return this;
   }
 
-  /**
-   * Register a PUT route.
-   */
   put<
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
@@ -289,19 +583,22 @@ export class Kage {
       TResponseSchema
     >,
   ): this;
-  put(path: string, config: KageRouteConfig): this;
-  put(path: string, handler: KageHandler): this;
   put(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  ): this;
+  put(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  put(
+    path: string,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): this {
     this.addRoute("PUT", path, handlerOrConfig);
     return this;
   }
 
-  /**
-   * Register a PATCH route.
-   */
   patch<
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
@@ -316,19 +613,25 @@ export class Kage {
       TResponseSchema
     >,
   ): this;
-  patch(path: string, config: KageRouteConfig): this;
-  patch(path: string, handler: KageHandler): this;
   patch(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  ): this;
+  patch(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this;
+  patch(
+    path: string,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): this {
     this.addRoute("PATCH", path, handlerOrConfig);
     return this;
   }
 
-  /**
-   * Register a DELETE route.
-   */
   delete<
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
@@ -343,19 +646,25 @@ export class Kage {
       TResponseSchema
     >,
   ): this;
-  delete(path: string, config: KageRouteConfig): this;
-  delete(path: string, handler: KageHandler): this;
   delete(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  ): this;
+  delete(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this;
+  delete(
+    path: string,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): this {
     this.addRoute("DELETE", path, handlerOrConfig);
     return this;
   }
 
-  /**
-   * Register a HEAD route.
-   */
   head<
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
@@ -370,19 +679,22 @@ export class Kage {
       TResponseSchema
     >,
   ): this;
-  head(path: string, config: KageRouteConfig): this;
-  head(path: string, handler: KageHandler): this;
   head(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  ): this;
+  head(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  head(
+    path: string,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): this {
     this.addRoute("HEAD", path, handlerOrConfig);
     return this;
   }
 
-  /**
-   * Register an OPTIONS route.
-   */
   options<
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
@@ -397,11 +709,20 @@ export class Kage {
       TResponseSchema
     >,
   ): this;
-  options(path: string, config: KageRouteConfig): this;
-  options(path: string, handler: KageHandler): this;
   options(
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  ): this;
+  options(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this;
+  options(
+    path: string,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): this {
     this.addRoute("OPTIONS", path, handlerOrConfig);
     return this;
@@ -410,16 +731,22 @@ export class Kage {
   private addRoute(
     method: HttpMethod,
     path: string,
-    handlerOrConfig: KageHandler | KageRouteConfig | KageSchemaConfig,
+    handlerOrConfig:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): void {
     const fullPath = this.resolvePath(path);
 
     if (this.isSchemaConfig(handlerOrConfig)) {
       const wrappedHandler = wrapTypedHandler(
-        handlerOrConfig.handler,
+        handlerOrConfig.handler as (ctx: unknown) => unknown,
         handlerOrConfig.schemas,
       );
-      this.router.add(method, fullPath, wrappedHandler as Handler);
+      const pluginWrappedHandler = this.wrapWithPlugins(
+        wrappedHandler as Handler,
+      );
+      this.router.add(method, fullPath, pluginWrappedHandler);
       return;
     }
 
@@ -427,11 +754,86 @@ export class Kage {
       ? handlerOrConfig
       : handlerOrConfig.handler;
 
-    this.router.add(method, fullPath, handler);
+    const pluginWrappedHandler = this.wrapWithPlugins(handler as Handler);
+    this.router.add(method, fullPath, pluginWrappedHandler);
+  }
+
+  private wrapWithPlugins(handler: Handler): Handler {
+    const deriveFns = [...this.pluginState.deriveFns];
+    const decorators = { ...this.pluginState.decorators };
+    const state = this.pluginState.state;
+    const beforeHandleHooks = [...this.pluginState.onBeforeHandleHooks];
+    const afterHandleHooks = [...this.pluginState.onAfterHandleHooks];
+
+    if (
+      deriveFns.length === 0 &&
+      Object.keys(decorators).length === 0 &&
+      beforeHandleHooks.length === 0 &&
+      afterHandleHooks.length === 0
+    ) {
+      // No plugins - return original handler with store
+      return (ctx: Context) => {
+        (ctx as Context & { store: TState }).store = state;
+        return handler(ctx);
+      };
+    }
+
+    return async (ctx: Context) => {
+      // Apply decorators
+      const extendedCtx = ctx as
+        & Context
+        & TDecorators
+        & { store: TState }
+        & TDerived;
+      Object.assign(extendedCtx, decorators);
+      extendedCtx.store = state;
+
+      // Apply derive functions
+      if (deriveFns.length > 0) {
+        const deriveContext = {
+          request: ctx.request,
+          headers: ctx.headers,
+          method: ctx.method,
+          path: ctx.path,
+          url: ctx.url,
+          params: ctx.params,
+          query: ctx.query,
+        };
+
+        for (const deriveFn of deriveFns) {
+          const derived = await deriveFn(deriveContext);
+          Object.assign(extendedCtx, derived);
+        }
+      }
+
+      // Execute beforeHandle hooks
+      for (const hook of beforeHandleHooks) {
+        const result = await hook(extendedCtx);
+        if (result instanceof Response) {
+          return result;
+        }
+      }
+
+      // Execute handler
+      let response = await handler(extendedCtx);
+      if (!(response instanceof Response)) {
+        response = this.resultToResponse(response);
+      }
+
+      // Execute afterHandle hooks
+      for (const hook of afterHandleHooks) {
+        response = await hook(extendedCtx, response as Response);
+      }
+
+      return response;
+    };
   }
 
   private isSchemaConfig(
-    config: KageHandler | KageRouteConfig | KageSchemaConfig,
+    config:
+      | KageHandler<TDecorators, TState, TDerived>
+      | KageRouteConfig<TDecorators, TState, TDerived>
+      | KageSchemaConfig,
   ): config is KageSchemaConfig {
     return (
       typeof config === "object" &&
@@ -442,40 +844,24 @@ export class Kage {
   }
 
   private resolvePath(path: string): string {
-    const basePath = this.config.basePath!;
-    if (basePath === "/") {
-      return path;
+    return this.normalizePath(this.basePath, path);
+  }
+
+  private normalizePath(base: string, path: string): string {
+    if (base === "/") {
+      return path.startsWith("/") ? path : `/${path}`;
     }
 
-    const normalizedBase = basePath.endsWith("/")
-      ? basePath.slice(0, -1)
-      : basePath;
-
+    const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
     return `${normalizedBase}${normalizedPath}`;
   }
 
-  /**
-   * Handle a request and return a response.
-   * Use this for Deno Deploy or custom server integration.
-   *
-   * @example
-   * ```typescript
-   * // Deno Deploy
-   * export default app;
-   *
-   * // Or explicit
-   * Deno.serve(app.fetch);
-   * ```
-   */
   fetch = (req: Request): Response | Promise<Response> => {
     return this.handleRequest(req);
   };
 
-  /**
-   * Start the HTTP server and listen for requests.
-   */
   async listen(options: ListenOptions = {}): Promise<void> {
     const port = options.port ?? 8000;
     const hostname = options.hostname ?? "0.0.0.0";
@@ -492,31 +878,38 @@ export class Kage {
     await server.finished;
   }
 
-  private handleRequest(req: Request): Response | Promise<Response> {
+  private async handleRequest(req: Request): Promise<Response> {
+    // Execute onRequest hooks
+    for (const hook of this.pluginState.onRequestHooks) {
+      const result = await hook(req);
+      if (result instanceof Response) {
+        return result;
+      }
+      if (result !== null) {
+        req = result;
+      }
+    }
+
     const urlStr = req.url;
     const method = req.method as HttpMethod;
 
-    // Fast path extraction - avoid URL constructor
     let pathname: string;
     let i = 0;
     const len = urlStr.length;
 
-    // Skip protocol (http:// or https://)
-    while (i < len && urlStr.charCodeAt(i) !== 58) i++; // ':'
+    while (i < len && urlStr.charCodeAt(i) !== 58) i++;
     if (i >= len) {
       pathname = "/";
     } else {
-      i += 3; // Skip '://'
-      // Skip host
-      while (i < len && urlStr.charCodeAt(i) !== 47) i++; // '/'
+      i += 3;
+      while (i < len && urlStr.charCodeAt(i) !== 47) i++;
       if (i >= len) {
         pathname = "/";
       } else {
         const pathStart = i;
-        // Find path end (? or #)
         while (i < len) {
           const c = urlStr.charCodeAt(i);
-          if (c === 63 || c === 35) break; // '?' or '#'
+          if (c === 63 || c === 35) break;
           i++;
         }
         pathname = urlStr.slice(pathStart, i);
@@ -529,7 +922,31 @@ export class Kage {
       return new Response(NOT_FOUND_BODY, { status: 404 });
     }
 
-    return this.executeRequest(req, match, pathname);
+    try {
+      const response = await this.executeRequest(req, match, pathname);
+
+      // Execute onResponse hooks
+      let finalResponse = response;
+      for (const hook of this.pluginState.onResponseHooks) {
+        finalResponse = await hook(finalResponse, req);
+      }
+
+      return finalResponse;
+    } catch (error) {
+      return this.handleError(error, req);
+    }
+  }
+
+  private async handleError(error: unknown, req: Request): Promise<Response> {
+    // Execute onError hooks
+    for (const hook of this.pluginState.onErrorHooks) {
+      const result = await hook(error, req);
+      if (result !== null) {
+        return result;
+      }
+    }
+
+    return this.createErrorResponse(error);
   }
 
   private executeRequest(
@@ -540,63 +957,57 @@ export class Kage {
     const ctx = this.contextPool.acquire(req, match.params, null, pathname);
     const middlewareLen = this.middleware.length;
 
-    // No middleware - fastest path
     if (middlewareLen === 0) {
       return this.executeHandlerDirect(ctx, match.handler);
     }
 
-    // Single middleware - optimized path
     if (middlewareLen === 1) {
       return this.executeSingleMiddleware(ctx, match.handler);
     }
 
-    // Multiple middleware - composed path
     return this.executeMiddlewareChain(ctx, match.handler);
   }
 
-  // Optimized handler execution - detects sync vs async
   private executeHandlerDirect(
     ctx: Context,
     handler: Handler,
   ): Response | Promise<Response> {
     const params = ctx.params;
+    let result: unknown;
     try {
-      const result = handler(ctx);
-
-      // Fast path: sync handler returning Response
-      if (result instanceof Response) {
-        releaseRadixParams(params);
-        this.contextPool.release(ctx);
-        return result;
-      }
-
-      // Async handler
-      if (result instanceof Promise) {
-        return result.then(
-          (r) => {
-            const response = this.resultToResponse(r);
-            releaseRadixParams(params);
-            this.contextPool.release(ctx);
-            return response;
-          },
-          (error) => {
-            releaseRadixParams(params);
-            this.contextPool.release(ctx);
-            return this.createErrorResponse(error);
-          },
-        );
-      }
-
-      // Sync handler returning non-Response
-      const response = this.resultToResponse(result);
-      releaseRadixParams(params);
-      this.contextPool.release(ctx);
-      return response;
+      result = handler(ctx);
     } catch (error) {
       releaseRadixParams(params);
       this.contextPool.release(ctx);
-      return this.createErrorResponse(error);
+      throw error;
     }
+
+    if (result instanceof Response) {
+      releaseRadixParams(params);
+      this.contextPool.release(ctx);
+      return result;
+    }
+
+    if (result instanceof Promise) {
+      return result.then(
+        (r) => {
+          const response = this.resultToResponse(r);
+          releaseRadixParams(params);
+          this.contextPool.release(ctx);
+          return response;
+        },
+        (error) => {
+          releaseRadixParams(params);
+          this.contextPool.release(ctx);
+          throw error;
+        },
+      );
+    }
+
+    const response = this.resultToResponse(result);
+    releaseRadixParams(params);
+    this.contextPool.release(ctx);
+    return response;
   }
 
   private async executeSingleMiddleware(
@@ -615,7 +1026,7 @@ export class Kage {
     } catch (error) {
       releaseRadixParams(params);
       this.contextPool.release(ctx);
-      return this.createErrorResponse(error);
+      throw error;
     }
   }
 
@@ -636,7 +1047,7 @@ export class Kage {
     } catch (error) {
       releaseRadixParams(params);
       this.contextPool.release(ctx);
-      return this.createErrorResponse(error);
+      throw error;
     }
   }
 
@@ -652,21 +1063,16 @@ export class Kage {
     return new Response(INTERNAL_ERROR_BODY, { status: 500 });
   }
 
-  // Monomorphic response conversion - ordered by frequency
   private resultToResponse(result: unknown): Response {
-    // Most common: handler returns Response directly
     if (result instanceof Response) {
       return result;
     }
 
-    // Second most common: null/undefined -> 204
     if (result == null) {
       return new Response(null, { status: 204 });
     }
 
-    // Third: object -> JSON
     if (typeof result === "object") {
-      // Check for binary types first (less common)
       if (result instanceof Uint8Array) {
         return new Response(result as BodyInit, BINARY_INIT_200);
       }
@@ -676,16 +1082,286 @@ export class Kage {
       if (result instanceof ReadableStream) {
         return new Response(result as BodyInit, BINARY_INIT_200);
       }
-      // Regular object -> JSON
       return new Response(JSON.stringify(result), JSON_INIT_200);
     }
 
-    // String
     if (typeof result === "string") {
       return new Response(result, TEXT_INIT_200);
     }
 
-    // Fallback: stringify anything else
     return new Response(JSON.stringify(result), JSON_INIT_200);
   }
+
+  /** @internal Used by KageGroup to register routes on parent */
+  _addRouteInternal(method: HttpMethod, path: string, handler: Handler): void {
+    this.router.add(method, path, handler);
+  }
+
+  /** @internal Get plugin state for groups */
+  _getPluginState(): PluginSystemState<TDecorators, TState> {
+    return this.pluginState;
+  }
 }
+
+/**
+ * Route group with scoped plugin support.
+ */
+class KageGroup<
+  TDecorators extends Record<string, unknown> = EmptyObject,
+  TState extends Record<string, unknown> = EmptyObject,
+  TDerived extends Record<string, unknown> = EmptyObject,
+> {
+  private routes: Array<{
+    method: HttpMethod;
+    path: string;
+    handler: Handler;
+  }> = [];
+
+  private localDeriveFns: Array<DeriveFn<Record<string, unknown>>> = [];
+  private localDecorators: Record<string, unknown> = {};
+  private localBeforeHandleHooks: Array<OnBeforeHandleHook<unknown>> = [];
+  private localAfterHandleHooks: Array<OnAfterHandleHook<unknown>> = [];
+
+  constructor(
+    private parent: Kage<TDecorators, TState, TDerived>,
+    private prefix: string,
+    private inheritedState: PluginSystemState<TDecorators, TState>,
+  ) {}
+
+  decorate<K extends string, V>(
+    key: K,
+    value: V,
+  ): KageGroup<TDecorators & { [P in K]: V }, TState, TDerived> {
+    this.localDecorators[key] = value;
+    return this as unknown as KageGroup<
+      TDecorators & { [P in K]: V },
+      TState,
+      TDerived
+    >;
+  }
+
+  derive<TNew extends Record<string, unknown>>(
+    fn: DeriveFn<TNew>,
+  ): KageGroup<TDecorators, TState, TDerived & TNew> {
+    this.localDeriveFns.push(fn as DeriveFn<Record<string, unknown>>);
+    return this as unknown as KageGroup<TDecorators, TState, TDerived & TNew>;
+  }
+
+  onBeforeHandle(
+    hook: OnBeforeHandleHook<
+      Context & TDecorators & { store: TState } & TDerived
+    >,
+  ): this {
+    this.localBeforeHandleHooks.push(hook as OnBeforeHandleHook<unknown>);
+    return this;
+  }
+
+  onAfterHandle(
+    hook: OnAfterHandleHook<
+      Context & TDecorators & { store: TState } & TDerived
+    >,
+  ): this {
+    this.localAfterHandleHooks.push(hook as OnAfterHandleHook<unknown>);
+    return this;
+  }
+
+  get(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this {
+    this.addRoute("GET", path, handler as Handler);
+    return this;
+  }
+
+  post(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this {
+    this.addRoute("POST", path, handler as Handler);
+    return this;
+  }
+
+  put(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this {
+    this.addRoute("PUT", path, handler as Handler);
+    return this;
+  }
+
+  patch(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this {
+    this.addRoute("PATCH", path, handler as Handler);
+    return this;
+  }
+
+  delete(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this {
+    this.addRoute("DELETE", path, handler as Handler);
+    return this;
+  }
+
+  head(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this {
+    this.addRoute("HEAD", path, handler as Handler);
+    return this;
+  }
+
+  options(
+    path: string,
+    handler: KageHandler<TDecorators, TState, TDerived>,
+  ): this {
+    this.addRoute("OPTIONS", path, handler as Handler);
+    return this;
+  }
+
+  private addRoute(method: HttpMethod, path: string, handler: Handler): void {
+    const fullPath = this.normalizePath(this.prefix, path);
+    const wrappedHandler = this.wrapWithGroupPlugins(handler);
+    this.routes.push({ method, path: fullPath, handler: wrappedHandler });
+  }
+
+  private wrapWithGroupPlugins(handler: Handler): Handler {
+    const inheritedDeriveFns = [...this.inheritedState.deriveFns];
+    const localDeriveFns = [...this.localDeriveFns];
+    const allDeriveFns = [...inheritedDeriveFns, ...localDeriveFns];
+
+    const inheritedDecorators = { ...this.inheritedState.decorators };
+    const localDecorators = { ...this.localDecorators };
+    const allDecorators = { ...inheritedDecorators, ...localDecorators };
+
+    const state = this.inheritedState.state;
+
+    const inheritedBeforeHooks = [...this.inheritedState.onBeforeHandleHooks];
+    const localBeforeHooks = [...this.localBeforeHandleHooks];
+    const allBeforeHooks = [...inheritedBeforeHooks, ...localBeforeHooks];
+
+    const inheritedAfterHooks = [...this.inheritedState.onAfterHandleHooks];
+    const localAfterHooks = [...this.localAfterHandleHooks];
+    const allAfterHooks = [...inheritedAfterHooks, ...localAfterHooks];
+
+    if (
+      allDeriveFns.length === 0 &&
+      Object.keys(allDecorators).length === 0 &&
+      allBeforeHooks.length === 0 &&
+      allAfterHooks.length === 0
+    ) {
+      return (ctx: Context) => {
+        (ctx as Context & { store: TState }).store = state;
+        return handler(ctx);
+      };
+    }
+
+    return async (ctx: Context) => {
+      const extendedCtx = ctx as
+        & Context
+        & TDecorators
+        & { store: TState }
+        & TDerived;
+      Object.assign(extendedCtx, allDecorators);
+      extendedCtx.store = state;
+
+      if (allDeriveFns.length > 0) {
+        const deriveContext = {
+          request: ctx.request,
+          headers: ctx.headers,
+          method: ctx.method,
+          path: ctx.path,
+          url: ctx.url,
+          params: ctx.params,
+          query: ctx.query,
+        };
+
+        for (const deriveFn of allDeriveFns) {
+          const derived = await deriveFn(deriveContext);
+          Object.assign(extendedCtx, derived);
+        }
+      }
+
+      for (const hook of allBeforeHooks) {
+        const result = await hook(extendedCtx);
+        if (result instanceof Response) {
+          return result;
+        }
+      }
+
+      let response = await handler(extendedCtx);
+      if (!(response instanceof Response)) {
+        response = this.resultToResponse(response);
+      }
+
+      for (const hook of allAfterHooks) {
+        response = await hook(extendedCtx, response as Response);
+      }
+
+      return response;
+    };
+  }
+
+  private normalizePath(base: string, path: string): string {
+    if (base === "/") {
+      return path.startsWith("/") ? path : `/${path}`;
+    }
+
+    const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+    return `${normalizedBase}${normalizedPath}`;
+  }
+
+  private resultToResponse(result: unknown): Response {
+    if (result instanceof Response) {
+      return result;
+    }
+
+    if (result == null) {
+      return new Response(null, { status: 204 });
+    }
+
+    if (typeof result === "object") {
+      if (result instanceof Uint8Array) {
+        return new Response(result as BodyInit, {
+          headers: { "Content-Type": "application/octet-stream" },
+        });
+      }
+      if (result instanceof ArrayBuffer) {
+        return new Response(result as BodyInit, {
+          headers: { "Content-Type": "application/octet-stream" },
+        });
+      }
+      if (result instanceof ReadableStream) {
+        return new Response(result as BodyInit, {
+          headers: { "Content-Type": "application/octet-stream" },
+        });
+      }
+      return new Response(JSON.stringify(result), {
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      });
+    }
+
+    if (typeof result === "string") {
+      return new Response(result, {
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
+
+    return new Response(JSON.stringify(result), {
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+  }
+
+  /** @internal Apply routes to parent app */
+  applyToParent(): void {
+    for (const route of this.routes) {
+      this.parent._addRouteInternal(route.method, route.path, route.handler);
+    }
+  }
+}
+
+export { KageGroup };
