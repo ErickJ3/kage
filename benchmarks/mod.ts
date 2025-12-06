@@ -6,4 +6,4 @@
  * @module
  */
 
-export * from "./router_bench.ts";
+export * from "./router.bench.ts";

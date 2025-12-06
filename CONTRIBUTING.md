@@ -71,7 +71,7 @@ Do not comment:
 #### Coverage Standards
 
 - Minimum 90% line coverage per package
-- 100% coverage for critical paths (routing, permissions, security)
+- 100% coverage for critical paths (routing)
 - Test edge cases and error conditions
 - Include performance regression tests
 

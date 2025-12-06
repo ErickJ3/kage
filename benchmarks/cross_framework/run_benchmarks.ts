@@ -13,9 +13,9 @@ interface BenchmarkResult {
 }
 
 const FRAMEWORKS = [
-  { name: "Kage", script: "kage_bench.ts", runtime: "deno" },
-  { name: "Hono", script: "hono_bench.ts", runtime: "deno" },
-  { name: "Oak", script: "oak_bench.ts", runtime: "deno" },
+  { name: "Kage", script: "kage.bench.ts", runtime: "deno" },
+  { name: "Hono", script: "hono.bench.ts", runtime: "deno" },
+  { name: "Oak", script: "oak.bench.ts", runtime: "deno" },
 ];
 
 const SCENARIOS = [

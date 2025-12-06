@@ -1,5 +1,4 @@
 import type { Static, TSchema } from "@sinclair/typebox";
-import type { Permission } from "@kage/permissions";
 
 export type ExtractPathParams<T extends string> = T extends
   `${string}:${infer Param}/${infer Rest}`
@@ -78,7 +77,6 @@ export interface TypedRouteConfig<
   TResponseSchema extends TSchema | undefined = undefined,
 > {
   path: TPath;
-  permissions?: Permission[];
   schema?: {
     params?: TParamsSchema;
     query?: TQuerySchema;
@@ -100,7 +98,6 @@ export interface TypedRouteDefinition<
   TResponse = unknown,
 > {
   path: string;
-  permissions?: Permission[];
   handler: TypedHandler<TParams, TQuery, TBody, TResponse>;
   schemas: TypedSchemaConfig;
 }

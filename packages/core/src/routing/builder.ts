@@ -33,7 +33,6 @@ if (!FormatRegistry.Has("date")) {
 if (!FormatRegistry.Has("time")) {
   FormatRegistry.Set("time", (v) => /^\d{2}:\d{2}:\d{2}/.test(v));
 }
-import type { Permission } from "@kage/permissions";
 import type {
   InferSchema,
   PathParams,
@@ -102,7 +101,6 @@ export function createRoute<
   TResponseSchema extends TSchema | undefined = undefined,
 >(config: {
   path: TPath;
-  permissions?: Permission[];
   schema?: {
     params?: TParamsSchema;
     query?: TQuerySchema;
@@ -118,7 +116,6 @@ export function createRoute<
 }): TypedRouteDefinition {
   return {
     path: config.path,
-    permissions: config.permissions,
     handler: config.handler as TypedHandler,
     schemas: config.schema ?? {},
   };
@@ -179,12 +176,14 @@ export function wrapTypedHandler(
       unknown
     >(ctx, validatedQuery, validatedBody);
 
-    const response = await (handler as TypedHandler<
-      Record<string, string>,
-      Record<string, unknown>,
-      unknown,
-      unknown
-    >)(typedCtx);
+    const response = await (
+      handler as TypedHandler<
+        Record<string, string>,
+        Record<string, unknown>,
+        unknown,
+        unknown
+      >
+    )(typedCtx);
 
     if (schemas.response && !(response instanceof Response)) {
       const result = validateSchema(schemas.response, response);
@@ -205,16 +204,10 @@ export class RouteBuilder<
   TResponse = unknown,
 > {
   private _path: TPath;
-  private _permissions?: Permission[];
   private _schemas: TypedSchemaConfig = {};
 
   constructor(path: TPath) {
     this._path = path;
-  }
-
-  permissions(perms: Permission[]): this {
-    this._permissions = perms;
-    return this;
   }
 
   params<T extends TSchema>(
@@ -274,7 +267,6 @@ export class RouteBuilder<
   ): TypedRouteDefinition<TParams, TQuery, TBody, TResponse> {
     return {
       path: this._path,
-      permissions: this._permissions,
       handler: fn,
       schemas: this._schemas,
     };
