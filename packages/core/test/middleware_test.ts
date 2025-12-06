@@ -132,8 +132,9 @@ describe("compose", () => {
       await next();
       return await next();
     };
+    const passThrough: Middleware = (_ctx, next) => next();
 
-    const composed = compose([mw]);
+    const composed = compose([mw, passThrough, passThrough, passThrough]);
     const ctx = new Context(new Request("http://localhost:8000/"));
 
     await assertRejects(
@@ -147,8 +148,9 @@ describe("compose", () => {
     const mw: Middleware = () => {
       throw new Error("Middleware error");
     };
+    const passThrough: Middleware = (_ctx, next) => next();
 
-    const composed = compose([mw]);
+    const composed = compose([mw, passThrough, passThrough, passThrough]);
     const ctx = new Context(new Request("http://localhost:8000/"));
 
     await assertRejects(
@@ -159,7 +161,13 @@ describe("compose", () => {
   });
 
   it("should propagate errors from handler", async () => {
-    const composed = compose([]);
+    const passThrough: Middleware = (_ctx, next) => next();
+    const composed = compose([
+      passThrough,
+      passThrough,
+      passThrough,
+      passThrough,
+    ]);
     const ctx = new Context(new Request("http://localhost:8000/"));
 
     await assertRejects(

@@ -5,11 +5,9 @@
  * for common operations like JSON parsing, header manipulation, etc.
  */
 
-const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const HTML_CONTENT_TYPE = "text/html; charset=utf-8";
 
-const JSON_HEADERS = Object.freeze({ "Content-Type": JSON_CONTENT_TYPE });
 const TEXT_HEADERS = Object.freeze({ "Content-Type": TEXT_CONTENT_TYPE });
 const HTML_HEADERS = Object.freeze({ "Content-Type": HTML_CONTENT_TYPE });
 
@@ -217,12 +215,9 @@ export class Context {
    */
   json(data: unknown, status = 200): Response {
     if (status === 200) {
-      return new Response(JSON.stringify(data), { headers: JSON_HEADERS });
+      return Response.json(data);
     }
-    return new Response(JSON.stringify(data), {
-      status,
-      headers: JSON_HEADERS,
-    });
+    return Response.json(data, { status });
   }
 
   /**

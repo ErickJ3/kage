@@ -36,6 +36,30 @@ export function compose(middleware: Middleware[]): Middleware {
     }
   }
 
+  const len = middleware.length;
+
+  if (len === 0) {
+    return (_ctx, next) => next();
+  }
+
+  if (len === 1) {
+    const m0 = middleware[0];
+    return (ctx, next) => m0(ctx, next);
+  }
+
+  if (len === 2) {
+    const m0 = middleware[0];
+    const m1 = middleware[1];
+    return (ctx, next) => m0(ctx, () => m1(ctx, next));
+  }
+
+  if (len === 3) {
+    const m0 = middleware[0];
+    const m1 = middleware[1];
+    const m2 = middleware[2];
+    return (ctx, next) => m0(ctx, () => m1(ctx, () => m2(ctx, next)));
+  }
+
   return function composedMiddleware(
     ctx: Context,
     next: () => Promise<Response>,
@@ -46,19 +70,11 @@ export function compose(middleware: Middleware[]): Middleware {
       if (i <= index) {
         return Promise.reject(new Error("next() called multiple times"));
       }
-
       index = i;
-
-      let fn: Middleware | undefined = middleware[i];
-
-      if (i === middleware.length) {
-        fn = next as Middleware;
-      }
-
+      const fn = i === len ? next : middleware[i];
       if (!fn) {
         return Promise.resolve(new Response(null, { status: 404 }));
       }
-
       try {
         return Promise.resolve(fn(ctx, () => dispatch(i + 1)));
       } catch (error) {

@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assert, assertEquals, assertExists } from "@std/assert";
 import { describe, it } from "@std/testing/bdd";
 import { Context } from "../src/context/mod.ts";
 
@@ -178,9 +178,8 @@ describe("Context", () => {
       const response = ctx.json({ message: "hello" });
 
       assertEquals(response.status, 200);
-      assertEquals(
-        response.headers.get("Content-Type"),
-        "application/json; charset=utf-8",
+      assert(
+        response.headers.get("Content-Type")?.startsWith("application/json"),
       );
       assertEquals(await response.json(), { message: "hello" });
     });

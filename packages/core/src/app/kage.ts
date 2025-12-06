@@ -131,15 +131,12 @@ export interface KageSchemaConfig<
   >;
 }
 
-const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const OCTET_CONTENT_TYPE = "application/octet-stream";
 
-const JSON_HEADERS: HeadersInit = { "Content-Type": JSON_CONTENT_TYPE };
 const TEXT_HEADERS: HeadersInit = { "Content-Type": TEXT_CONTENT_TYPE };
 const BINARY_HEADERS: HeadersInit = { "Content-Type": OCTET_CONTENT_TYPE };
 
-const JSON_INIT_200: ResponseInit = { headers: JSON_HEADERS };
 const TEXT_INIT_200: ResponseInit = { headers: TEXT_HEADERS };
 const BINARY_INIT_200: ResponseInit = { headers: BINARY_HEADERS };
 
@@ -759,70 +756,101 @@ export class Kage<
   }
 
   private wrapWithPlugins(handler: Handler): Handler {
-    const deriveFns = [...this.pluginState.deriveFns];
-    const decorators = { ...this.pluginState.decorators };
+    const deriveFns = this.pluginState.deriveFns;
+    const decoratorKeys = Object.keys(this.pluginState.decorators);
+    const decorators = this.pluginState.decorators;
     const state = this.pluginState.state;
-    const beforeHandleHooks = [...this.pluginState.onBeforeHandleHooks];
-    const afterHandleHooks = [...this.pluginState.onAfterHandleHooks];
+    const beforeHandleHooks = this.pluginState.onBeforeHandleHooks;
+    const afterHandleHooks = this.pluginState.onAfterHandleHooks;
 
-    if (
-      deriveFns.length === 0 &&
-      Object.keys(decorators).length === 0 &&
-      beforeHandleHooks.length === 0 &&
-      afterHandleHooks.length === 0
-    ) {
-      // No plugins - return original handler with store
+    const hasDerive = deriveFns.length > 0;
+    const hasDecorators = decoratorKeys.length > 0;
+    const hasBeforeHooks = beforeHandleHooks.length > 0;
+    const hasAfterHooks = afterHandleHooks.length > 0;
+
+    if (!hasDerive && !hasDecorators && !hasBeforeHooks && !hasAfterHooks) {
       return (ctx: Context) => {
         (ctx as Context & { store: TState }).store = state;
         return handler(ctx);
       };
     }
 
+    if (!hasDerive && !hasBeforeHooks && !hasAfterHooks) {
+      return (ctx: Context) => {
+        const extendedCtx = ctx as Context & TDecorators & { store: TState };
+        for (const key of decoratorKeys) {
+          (extendedCtx as Record<string, unknown>)[key] =
+            decorators[key as keyof TDecorators];
+        }
+        extendedCtx.store = state;
+        return handler(extendedCtx);
+      };
+    }
+
     return async (ctx: Context) => {
-      // Apply decorators
       const extendedCtx = ctx as
         & Context
         & TDecorators
         & { store: TState }
         & TDerived;
-      Object.assign(extendedCtx, decorators);
+
+      if (hasDecorators) {
+        for (const key of decoratorKeys) {
+          (extendedCtx as Record<string, unknown>)[key] =
+            decorators[key as keyof TDecorators];
+        }
+      }
       extendedCtx.store = state;
 
-      // Apply derive functions
-      if (deriveFns.length > 0) {
-        const deriveContext = {
-          request: ctx.request,
-          headers: ctx.headers,
-          method: ctx.method,
-          path: ctx.path,
-          url: ctx.url,
-          params: ctx.params,
-          query: ctx.query,
-        };
-
+      if (hasDerive) {
         for (const deriveFn of deriveFns) {
-          const derived = await deriveFn(deriveContext);
-          Object.assign(extendedCtx, derived);
+          const derived = deriveFn(ctx);
+          if (derived instanceof Promise) {
+            const resolvedDerived = await derived;
+            for (const key in resolvedDerived) {
+              (extendedCtx as Record<string, unknown>)[key] =
+                resolvedDerived[key];
+            }
+          } else {
+            for (const key in derived) {
+              (extendedCtx as Record<string, unknown>)[key] = derived[key];
+            }
+          }
         }
       }
 
-      // Execute beforeHandle hooks
-      for (const hook of beforeHandleHooks) {
-        const result = await hook(extendedCtx);
-        if (result instanceof Response) {
-          return result;
+      if (hasBeforeHooks) {
+        for (const hook of beforeHandleHooks) {
+          const result = hook(extendedCtx);
+          if (result instanceof Response) {
+            return result;
+          }
+          if (result instanceof Promise) {
+            const resolved = await result;
+            if (resolved instanceof Response) {
+              return resolved;
+            }
+          }
         }
       }
 
-      // Execute handler
-      let response = await handler(extendedCtx);
+      let response = handler(extendedCtx);
+      if (response instanceof Promise) {
+        response = await response;
+      }
       if (!(response instanceof Response)) {
         response = this.resultToResponse(response);
       }
 
-      // Execute afterHandle hooks
-      for (const hook of afterHandleHooks) {
-        response = await hook(extendedCtx, response as Response);
+      if (hasAfterHooks) {
+        for (const hook of afterHandleHooks) {
+          const hookResult = hook(extendedCtx, response as Response);
+          if (hookResult instanceof Promise) {
+            response = await hookResult;
+          } else {
+            response = hookResult;
+          }
+        }
       }
 
       return response;
@@ -894,25 +922,18 @@ export class Kage<
     const method = req.method as HttpMethod;
 
     let pathname: string;
-    let i = 0;
-    const len = urlStr.length;
-
-    while (i < len && urlStr.charCodeAt(i) !== 58) i++;
-    if (i >= len) {
+    const schemeEnd = urlStr.indexOf("://");
+    if (schemeEnd === -1) {
       pathname = "/";
     } else {
-      i += 3;
-      while (i < len && urlStr.charCodeAt(i) !== 47) i++;
-      if (i >= len) {
+      const pathStart = urlStr.indexOf("/", schemeEnd + 3);
+      if (pathStart === -1) {
         pathname = "/";
       } else {
-        const pathStart = i;
-        while (i < len) {
-          const c = urlStr.charCodeAt(i);
-          if (c === 63 || c === 35) break;
-          i++;
-        }
-        pathname = urlStr.slice(pathStart, i);
+        let pathEnd = urlStr.indexOf("?", pathStart);
+        if (pathEnd === -1) pathEnd = urlStr.indexOf("#", pathStart);
+        if (pathEnd === -1) pathEnd = urlStr.length;
+        pathname = urlStr.slice(pathStart, pathEnd);
       }
     }
 
@@ -1082,14 +1103,14 @@ export class Kage<
       if (result instanceof ReadableStream) {
         return new Response(result as BodyInit, BINARY_INIT_200);
       }
-      return new Response(JSON.stringify(result), JSON_INIT_200);
+      return Response.json(result);
     }
 
     if (typeof result === "string") {
       return new Response(result, TEXT_INIT_200);
     }
 
-    return new Response(JSON.stringify(result), JSON_INIT_200);
+    return Response.json(result);
   }
 
   /** @internal Used by KageGroup to register routes on parent */
@@ -1228,33 +1249,46 @@ class KageGroup<
   }
 
   private wrapWithGroupPlugins(handler: Handler): Handler {
-    const inheritedDeriveFns = [...this.inheritedState.deriveFns];
-    const localDeriveFns = [...this.localDeriveFns];
-    const allDeriveFns = [...inheritedDeriveFns, ...localDeriveFns];
-
-    const inheritedDecorators = { ...this.inheritedState.decorators };
-    const localDecorators = { ...this.localDecorators };
-    const allDecorators = { ...inheritedDecorators, ...localDecorators };
-
+    const allDeriveFns = [
+      ...this.inheritedState.deriveFns,
+      ...this.localDeriveFns,
+    ];
+    const allDecorators = {
+      ...this.inheritedState.decorators,
+      ...this.localDecorators,
+    };
+    const decoratorKeys = Object.keys(allDecorators);
     const state = this.inheritedState.state;
+    const allBeforeHooks = [
+      ...this.inheritedState.onBeforeHandleHooks,
+      ...this.localBeforeHandleHooks,
+    ];
+    const allAfterHooks = [
+      ...this.inheritedState.onAfterHandleHooks,
+      ...this.localAfterHandleHooks,
+    ];
 
-    const inheritedBeforeHooks = [...this.inheritedState.onBeforeHandleHooks];
-    const localBeforeHooks = [...this.localBeforeHandleHooks];
-    const allBeforeHooks = [...inheritedBeforeHooks, ...localBeforeHooks];
+    const hasDerive = allDeriveFns.length > 0;
+    const hasDecorators = decoratorKeys.length > 0;
+    const hasBeforeHooks = allBeforeHooks.length > 0;
+    const hasAfterHooks = allAfterHooks.length > 0;
 
-    const inheritedAfterHooks = [...this.inheritedState.onAfterHandleHooks];
-    const localAfterHooks = [...this.localAfterHandleHooks];
-    const allAfterHooks = [...inheritedAfterHooks, ...localAfterHooks];
-
-    if (
-      allDeriveFns.length === 0 &&
-      Object.keys(allDecorators).length === 0 &&
-      allBeforeHooks.length === 0 &&
-      allAfterHooks.length === 0
-    ) {
+    if (!hasDerive && !hasDecorators && !hasBeforeHooks && !hasAfterHooks) {
       return (ctx: Context) => {
         (ctx as Context & { store: TState }).store = state;
         return handler(ctx);
+      };
+    }
+
+    if (!hasDerive && !hasBeforeHooks && !hasAfterHooks) {
+      return (ctx: Context) => {
+        const extendedCtx = ctx as Context & TDecorators & { store: TState };
+        for (const key of decoratorKeys) {
+          (extendedCtx as Record<string, unknown>)[key] =
+            allDecorators[key as keyof typeof allDecorators];
+        }
+        extendedCtx.store = state;
+        return handler(extendedCtx);
       };
     }
 
@@ -1264,40 +1298,64 @@ class KageGroup<
         & TDecorators
         & { store: TState }
         & TDerived;
-      Object.assign(extendedCtx, allDecorators);
+
+      if (hasDecorators) {
+        for (const key of decoratorKeys) {
+          (extendedCtx as Record<string, unknown>)[key] =
+            allDecorators[key as keyof typeof allDecorators];
+        }
+      }
       extendedCtx.store = state;
 
-      if (allDeriveFns.length > 0) {
-        const deriveContext = {
-          request: ctx.request,
-          headers: ctx.headers,
-          method: ctx.method,
-          path: ctx.path,
-          url: ctx.url,
-          params: ctx.params,
-          query: ctx.query,
-        };
-
+      if (hasDerive) {
         for (const deriveFn of allDeriveFns) {
-          const derived = await deriveFn(deriveContext);
-          Object.assign(extendedCtx, derived);
+          const derived = deriveFn(ctx);
+          if (derived instanceof Promise) {
+            const resolvedDerived = await derived;
+            for (const key in resolvedDerived) {
+              (extendedCtx as Record<string, unknown>)[key] =
+                resolvedDerived[key];
+            }
+          } else {
+            for (const key in derived) {
+              (extendedCtx as Record<string, unknown>)[key] = derived[key];
+            }
+          }
         }
       }
 
-      for (const hook of allBeforeHooks) {
-        const result = await hook(extendedCtx);
-        if (result instanceof Response) {
-          return result;
+      if (hasBeforeHooks) {
+        for (const hook of allBeforeHooks) {
+          const result = hook(extendedCtx);
+          if (result instanceof Response) {
+            return result;
+          }
+          if (result instanceof Promise) {
+            const resolved = await result;
+            if (resolved instanceof Response) {
+              return resolved;
+            }
+          }
         }
       }
 
-      let response = await handler(extendedCtx);
+      let response = handler(extendedCtx);
+      if (response instanceof Promise) {
+        response = await response;
+      }
       if (!(response instanceof Response)) {
         response = this.resultToResponse(response);
       }
 
-      for (const hook of allAfterHooks) {
-        response = await hook(extendedCtx, response as Response);
+      if (hasAfterHooks) {
+        for (const hook of allAfterHooks) {
+          const hookResult = hook(extendedCtx, response as Response);
+          if (hookResult instanceof Promise) {
+            response = await hookResult;
+          } else {
+            response = hookResult;
+          }
+        }
       }
 
       return response;
@@ -1326,34 +1384,22 @@ class KageGroup<
 
     if (typeof result === "object") {
       if (result instanceof Uint8Array) {
-        return new Response(result as BodyInit, {
-          headers: { "Content-Type": "application/octet-stream" },
-        });
+        return new Response(result as BodyInit, BINARY_INIT_200);
       }
       if (result instanceof ArrayBuffer) {
-        return new Response(result as BodyInit, {
-          headers: { "Content-Type": "application/octet-stream" },
-        });
+        return new Response(result as BodyInit, BINARY_INIT_200);
       }
       if (result instanceof ReadableStream) {
-        return new Response(result as BodyInit, {
-          headers: { "Content-Type": "application/octet-stream" },
-        });
+        return new Response(result as BodyInit, BINARY_INIT_200);
       }
-      return new Response(JSON.stringify(result), {
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-      });
+      return Response.json(result);
     }
 
     if (typeof result === "string") {
-      return new Response(result, {
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-      });
+      return new Response(result, TEXT_INIT_200);
     }
 
-    return new Response(JSON.stringify(result), {
-      headers: { "Content-Type": "application/json; charset=utf-8" },
-    });
+    return Response.json(result);
   }
 
   /** @internal Apply routes to parent app */
