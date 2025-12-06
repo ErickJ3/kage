@@ -80,6 +80,13 @@ Deno's unique capabilities: native TypeScript, Web Workers, and Web Standards.
   - [x] Configuration merging
   - [x] Plugin composition with composePlugins()
   - [x] Dependency checking between plugins
+- [x] Plugin system
+  - [x] Type-safe decorate() for singleton values
+  - [x] Type-safe state() for mutable global state
+  - [x] Type-safe derive() for per-request computed values
+  - [x] Plugin functions via use() with full type inference
+  - [x] Scoped groups via group() with prefix and isolated plugins
+  - [x] Fluent lifecycle hooks (onRequest, onResponse, onError, onBeforeHandle, onAfterHandle)
 
 **Success points**: Developer can build type-safe API in <100 LOC with zero
 type annotations.

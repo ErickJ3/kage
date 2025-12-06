@@ -251,12 +251,13 @@ describe("Kage", () => {
       const app = new Kage();
       const order: number[] = [];
 
-      app.use(async (_ctx, next) => {
+      const mw: Middleware = async (_ctx, next) => {
         order.push(1);
         const response = await next();
         order.push(3);
         return response;
-      });
+      };
+      app.use(mw);
 
       app.get("/mw", () => {
         order.push(2);
@@ -278,7 +279,7 @@ describe("Kage", () => {
     it("should allow middleware to modify response", async () => {
       const app = new Kage();
 
-      app.use(async (_ctx, next) => {
+      const mw: Middleware = async (_ctx, next) => {
         const response = await next();
         const newHeaders = new Headers(response.headers);
         newHeaders.set("X-Middleware", "applied");
@@ -286,7 +287,8 @@ describe("Kage", () => {
           status: response.status,
           headers: newHeaders,
         });
-      });
+      };
+      app.use(mw);
 
       app.get("/modified", () => "OK");
 

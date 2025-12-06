@@ -20,7 +20,7 @@ import { Type } from "@sinclair/typebox";
 export const t = Type;
 export type { Static, TSchema } from "@sinclair/typebox";
 
-export { createLogger, Kage } from "~/app/mod.ts";
+export { createLogger, Kage, KageGroup } from "~/app/mod.ts";
 export type {
   KageConfig,
   KageHandler,
@@ -59,12 +59,18 @@ export type {
   ValidationIssue,
 } from "~/errors/mod.ts";
 
-export { composePlugins, definePlugin, PluginManager } from "~/plugins/mod.ts";
 export type {
-  Plugin,
-  PluginConfig,
-  PluginContext,
-  PluginHooks,
+  DeriveContext,
+  DeriveFn,
+  GroupConfig,
+  OnAfterHandleHook,
+  OnBeforeHandleHook,
+  OnErrorHook,
+  OnRequestHook,
+  OnResponseHook,
+  PluginFn,
+  PluginSystemState,
+  ScopeOptions,
 } from "~/plugins/mod.ts";
 
 export {
