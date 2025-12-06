@@ -7,8 +7,8 @@ import {
   type Handler,
   type HttpMethod,
   type Match,
-  releaseParams,
-  Router,
+  RadixRouter,
+  releaseRadixParams,
 } from "@kage/router";
 import type { Static, TSchema } from "@sinclair/typebox";
 import { createLogger, isLogger } from "~/app/logger.ts";
@@ -129,7 +129,7 @@ const JSON_INIT_200: ResponseInit = { headers: JSON_HEADERS };
 const TEXT_INIT_200: ResponseInit = { headers: TEXT_HEADERS };
 const BINARY_INIT_200: ResponseInit = { headers: BINARY_HEADERS };
 
-// Static responses - no clone needed, Response body is null or consumed
+// Static responses
 const NOT_FOUND_BODY = "Not Found";
 const INTERNAL_ERROR_BODY = "Internal Server Error";
 
@@ -150,7 +150,7 @@ const INTERNAL_ERROR_BODY = "Internal Server Error";
  * ```
  */
 export class Kage {
-  private router: Router;
+  private router: RadixRouter;
   private config: KageConfig;
   private middleware: Middleware[];
   private composedMiddleware:
@@ -161,7 +161,7 @@ export class Kage {
   readonly log: Logger | undefined;
 
   constructor(config: KageConfig = {}) {
-    this.router = new Router();
+    this.router = new RadixRouter();
     this.middleware = [];
     this.config = {
       development: false,
@@ -498,46 +498,46 @@ export class Kage {
 
     // Fast path extraction - avoid URL constructor
     let pathname: string;
-    let url: URL | null = null;
+    let i = 0;
+    const len = urlStr.length;
 
-    const protocolEnd = urlStr.indexOf("://");
-    if (protocolEnd !== -1) {
-      const pathStart = urlStr.indexOf("/", protocolEnd + 3);
-      if (pathStart !== -1) {
-        const queryStart = urlStr.indexOf("?", pathStart);
-        const hashStart = urlStr.indexOf("#", pathStart);
-        let pathEnd = urlStr.length;
-        if (queryStart !== -1 && (hashStart === -1 || queryStart < hashStart)) {
-          pathEnd = queryStart;
-        } else if (hashStart !== -1) {
-          pathEnd = hashStart;
-        }
-        pathname = urlStr.slice(pathStart, pathEnd);
-      } else {
-        pathname = "/";
-      }
+    // Skip protocol (http:// or https://)
+    while (i < len && urlStr.charCodeAt(i) !== 58) i++; // ':'
+    if (i >= len) {
+      pathname = "/";
     } else {
-      url = new URL(urlStr);
-      pathname = url.pathname;
+      i += 3; // Skip '://'
+      // Skip host
+      while (i < len && urlStr.charCodeAt(i) !== 47) i++; // '/'
+      if (i >= len) {
+        pathname = "/";
+      } else {
+        const pathStart = i;
+        // Find path end (? or #)
+        while (i < len) {
+          const c = urlStr.charCodeAt(i);
+          if (c === 63 || c === 35) break; // '?' or '#'
+          i++;
+        }
+        pathname = urlStr.slice(pathStart, i);
+      }
     }
 
     const match = this.router.find(method, pathname);
 
     if (!match) {
-      // Create new Response each time - body is consumed on read
       return new Response(NOT_FOUND_BODY, { status: 404 });
     }
 
-    return this.executeRequest(req, match, url, pathname);
+    return this.executeRequest(req, match, pathname);
   }
 
   private executeRequest(
     req: Request,
     match: Match,
-    url: URL | null,
     pathname: string,
   ): Response | Promise<Response> {
-    const ctx = this.contextPool.acquire(req, match.params, url, pathname);
+    const ctx = this.contextPool.acquire(req, match.params, null, pathname);
     const middlewareLen = this.middleware.length;
 
     // No middleware - fastest path
@@ -565,7 +565,7 @@ export class Kage {
 
       // Fast path: sync handler returning Response
       if (result instanceof Response) {
-        releaseParams(params);
+        releaseRadixParams(params);
         this.contextPool.release(ctx);
         return result;
       }
@@ -575,12 +575,12 @@ export class Kage {
         return result.then(
           (r) => {
             const response = this.resultToResponse(r);
-            releaseParams(params);
+            releaseRadixParams(params);
             this.contextPool.release(ctx);
             return response;
           },
           (error) => {
-            releaseParams(params);
+            releaseRadixParams(params);
             this.contextPool.release(ctx);
             return this.createErrorResponse(error);
           },
@@ -589,11 +589,11 @@ export class Kage {
 
       // Sync handler returning non-Response
       const response = this.resultToResponse(result);
-      releaseParams(params);
+      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
-      releaseParams(params);
+      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return this.createErrorResponse(error);
     }
@@ -609,11 +609,11 @@ export class Kage {
         const result = await handler(ctx);
         return this.resultToResponse(result);
       });
-      releaseParams(params);
+      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
-      releaseParams(params);
+      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return this.createErrorResponse(error);
     }
@@ -630,11 +630,11 @@ export class Kage {
         const result = await handler(ctx);
         return this.resultToResponse(result);
       });
-      releaseParams(params);
+      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
-      releaseParams(params);
+      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return this.createErrorResponse(error);
     }
