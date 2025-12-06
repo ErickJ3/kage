@@ -31,7 +31,7 @@ import { Kage } from "jsr:@kage/core";
 import { Kage, t } from "@kage/core";
 
 new Kage()
-  .get("/", (ctx) => ctx.json({ message: "Hello, Kage!" }))
+  .get("/", (c) => c.json({ message: "Hello, Kage!" }))
   .post("/users", {
     schemas: {
       body: t.Object({
@@ -39,7 +39,7 @@ new Kage()
         email: t.String({ format: "email" }),
       }),
     },
-    handler: (ctx) => ctx.json({ id: crypto.randomUUID(), ...ctx.body }, 201),
+    handler: (c) => c.json({ id: crypto.randomUUID(), ...c.body }, 201),
   })
   .listen({ port: 8000 });
 ```
