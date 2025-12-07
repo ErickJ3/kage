@@ -51,10 +51,11 @@ export interface KageRouteConfig<
   handler: KageHandler<TDecorators, TState, TDerived>;
 }
 
-export interface KageSchemaContext<
+export interface KageSchemaContextBase<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
   TBody = unknown,
+  TState extends Record<string, unknown> = Record<string, unknown>,
 > {
   readonly request: Request;
   readonly params: TParams;
@@ -65,7 +66,7 @@ export interface KageSchemaContext<
   readonly query: TQuery;
   readonly body: TBody;
   readonly state: Record<string, unknown>;
-  readonly store: Record<string, unknown>;
+  readonly store: TState;
   json<T>(data: T, status?: number): Response;
   text(text: string, status?: number): Response;
   html(html: string, status?: number): Response;
@@ -89,12 +90,27 @@ export interface KageSchemaContext<
   response(body?: BodyInit | null, init?: ResponseInit): Response;
 }
 
+export type KageSchemaContext<
+  TDecorators extends Record<string, unknown> = EmptyObject,
+  TState extends Record<string, unknown> = EmptyObject,
+  TDerived extends Record<string, unknown> = EmptyObject,
+  TParams = Record<string, string>,
+  TQuery = Record<string, unknown>,
+  TBody = unknown,
+> =
+  & KageSchemaContextBase<TParams, TQuery, TBody, TState>
+  & TDecorators
+  & TDerived;
+
 export type KageSchemaHandler<
+  TDecorators extends Record<string, unknown> = EmptyObject,
+  TState extends Record<string, unknown> = EmptyObject,
+  TDerived extends Record<string, unknown> = EmptyObject,
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
   TBody = unknown,
 > = (
-  ctx: KageSchemaContext<TParams, TQuery, TBody>,
+  ctx: KageSchemaContext<TDecorators, TState, TDerived, TParams, TQuery, TBody>,
 ) => unknown | Promise<unknown>;
 
 type InferSchema<T, Default = unknown> = T extends TSchema ? Static<T>
@@ -113,6 +129,9 @@ export interface KageSchemas<
 }
 
 export interface KageSchemaConfig<
+  TDecorators extends Record<string, unknown> = EmptyObject,
+  TState extends Record<string, unknown> = EmptyObject,
+  TDerived extends Record<string, unknown> = EmptyObject,
   TBodySchema extends TSchema | undefined = undefined,
   TQuerySchema extends TSchema | undefined = undefined,
   TParamsSchema extends TSchema | undefined = undefined,
@@ -125,6 +144,9 @@ export interface KageSchemaConfig<
     TResponseSchema
   >;
   handler: KageSchemaHandler<
+    TDecorators,
+    TState,
+    TDerived,
     InferSchema<TParamsSchema, Record<string, string>>,
     InferSchema<TQuerySchema, Record<string, unknown>>,
     InferSchema<TBodySchema, unknown>
@@ -514,6 +536,9 @@ export class Kage<
   >(
     path: string,
     config: KageSchemaConfig<
+      TDecorators,
+      TState,
+      TDerived,
       TBodySchema,
       TQuerySchema,
       TParamsSchema,
@@ -525,12 +550,25 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   get(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  get(
+  get<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     handlerOrConfig:
       | KageHandler<TDecorators, TState, TDerived>
       | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+      | KageSchemaConfig<
+        TDecorators,
+        TState,
+        TDerived,
+        TBodySchema,
+        TQuerySchema,
+        TParamsSchema,
+        TResponseSchema
+      >,
   ): this {
     this.addRoute("GET", path, handlerOrConfig);
     return this;
@@ -544,6 +582,9 @@ export class Kage<
   >(
     path: string,
     config: KageSchemaConfig<
+      TDecorators,
+      TState,
+      TDerived,
       TBodySchema,
       TQuerySchema,
       TParamsSchema,
@@ -555,12 +596,25 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   post(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  post(
+  post<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     handlerOrConfig:
       | KageHandler<TDecorators, TState, TDerived>
       | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+      | KageSchemaConfig<
+        TDecorators,
+        TState,
+        TDerived,
+        TBodySchema,
+        TQuerySchema,
+        TParamsSchema,
+        TResponseSchema
+      >,
   ): this {
     this.addRoute("POST", path, handlerOrConfig);
     return this;
@@ -574,6 +628,9 @@ export class Kage<
   >(
     path: string,
     config: KageSchemaConfig<
+      TDecorators,
+      TState,
+      TDerived,
       TBodySchema,
       TQuerySchema,
       TParamsSchema,
@@ -585,12 +642,25 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   put(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  put(
+  put<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     handlerOrConfig:
       | KageHandler<TDecorators, TState, TDerived>
       | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+      | KageSchemaConfig<
+        TDecorators,
+        TState,
+        TDerived,
+        TBodySchema,
+        TQuerySchema,
+        TParamsSchema,
+        TResponseSchema
+      >,
   ): this {
     this.addRoute("PUT", path, handlerOrConfig);
     return this;
@@ -604,6 +674,9 @@ export class Kage<
   >(
     path: string,
     config: KageSchemaConfig<
+      TDecorators,
+      TState,
+      TDerived,
       TBodySchema,
       TQuerySchema,
       TParamsSchema,
@@ -618,12 +691,25 @@ export class Kage<
     path: string,
     handler: KageHandler<TDecorators, TState, TDerived>,
   ): this;
-  patch(
+  patch<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     handlerOrConfig:
       | KageHandler<TDecorators, TState, TDerived>
       | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+      | KageSchemaConfig<
+        TDecorators,
+        TState,
+        TDerived,
+        TBodySchema,
+        TQuerySchema,
+        TParamsSchema,
+        TResponseSchema
+      >,
   ): this {
     this.addRoute("PATCH", path, handlerOrConfig);
     return this;
@@ -637,6 +723,9 @@ export class Kage<
   >(
     path: string,
     config: KageSchemaConfig<
+      TDecorators,
+      TState,
+      TDerived,
       TBodySchema,
       TQuerySchema,
       TParamsSchema,
@@ -651,12 +740,25 @@ export class Kage<
     path: string,
     handler: KageHandler<TDecorators, TState, TDerived>,
   ): this;
-  delete(
+  delete<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     handlerOrConfig:
       | KageHandler<TDecorators, TState, TDerived>
       | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+      | KageSchemaConfig<
+        TDecorators,
+        TState,
+        TDerived,
+        TBodySchema,
+        TQuerySchema,
+        TParamsSchema,
+        TResponseSchema
+      >,
   ): this {
     this.addRoute("DELETE", path, handlerOrConfig);
     return this;
@@ -670,6 +772,9 @@ export class Kage<
   >(
     path: string,
     config: KageSchemaConfig<
+      TDecorators,
+      TState,
+      TDerived,
       TBodySchema,
       TQuerySchema,
       TParamsSchema,
@@ -681,12 +786,25 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   head(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  head(
+  head<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     handlerOrConfig:
       | KageHandler<TDecorators, TState, TDerived>
       | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+      | KageSchemaConfig<
+        TDecorators,
+        TState,
+        TDerived,
+        TBodySchema,
+        TQuerySchema,
+        TParamsSchema,
+        TResponseSchema
+      >,
   ): this {
     this.addRoute("HEAD", path, handlerOrConfig);
     return this;
@@ -700,6 +818,9 @@ export class Kage<
   >(
     path: string,
     config: KageSchemaConfig<
+      TDecorators,
+      TState,
+      TDerived,
       TBodySchema,
       TQuerySchema,
       TParamsSchema,
@@ -714,12 +835,25 @@ export class Kage<
     path: string,
     handler: KageHandler<TDecorators, TState, TDerived>,
   ): this;
-  options(
+  options<
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
     path: string,
     handlerOrConfig:
       | KageHandler<TDecorators, TState, TDerived>
       | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+      | KageSchemaConfig<
+        TDecorators,
+        TState,
+        TDerived,
+        TBodySchema,
+        TQuerySchema,
+        TParamsSchema,
+        TResponseSchema
+      >,
   ): this {
     this.addRoute("OPTIONS", path, handlerOrConfig);
     return this;
@@ -728,10 +862,8 @@ export class Kage<
   private addRoute(
     method: HttpMethod,
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): void {
     const fullPath = this.resolvePath(path);
 
@@ -857,12 +989,10 @@ export class Kage<
     };
   }
 
+  // deno-lint-ignore no-explicit-any
   private isSchemaConfig(
-    config:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig,
-  ): config is KageSchemaConfig {
+    config: unknown,
+  ): config is KageSchemaConfig<any, any, any, any, any, any, any> {
     return (
       typeof config === "object" &&
       config !== null &&
