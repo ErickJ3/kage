@@ -1,12 +1,12 @@
 # Kage (カゲ)
 
-A Deno-native web framework focused on speed and developer experience.
+Type-safe web framework for Deno.
 
 Pronounced "kahg" (rhymes with "lodge").
 
 ## Why Kage?
 
-Frameworks like Hono and Oak target multiple runtimes. Kage doesn't — it's built exclusively for Deno and takes full advantage of it: native TypeScript, transparent workers, and maximum performance.
+Built for Deno with good performance and type safety. Plugin system with decorators and derived values that just work.
 
 ## Installation
 
