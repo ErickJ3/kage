@@ -550,25 +550,10 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   get(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  get<
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
-  >(
+  get(
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig<
-        TDecorators,
-        TState,
-        TDerived,
-        TBodySchema,
-        TQuerySchema,
-        TParamsSchema,
-        TResponseSchema
-      >,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): this {
     this.addRoute("GET", path, handlerOrConfig);
     return this;
@@ -596,25 +581,10 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   post(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  post<
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
-  >(
+  post(
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig<
-        TDecorators,
-        TState,
-        TDerived,
-        TBodySchema,
-        TQuerySchema,
-        TParamsSchema,
-        TResponseSchema
-      >,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): this {
     this.addRoute("POST", path, handlerOrConfig);
     return this;
@@ -642,25 +612,10 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   put(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  put<
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
-  >(
+  put(
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig<
-        TDecorators,
-        TState,
-        TDerived,
-        TBodySchema,
-        TQuerySchema,
-        TParamsSchema,
-        TResponseSchema
-      >,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): this {
     this.addRoute("PUT", path, handlerOrConfig);
     return this;
@@ -691,25 +646,10 @@ export class Kage<
     path: string,
     handler: KageHandler<TDecorators, TState, TDerived>,
   ): this;
-  patch<
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
-  >(
+  patch(
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig<
-        TDecorators,
-        TState,
-        TDerived,
-        TBodySchema,
-        TQuerySchema,
-        TParamsSchema,
-        TResponseSchema
-      >,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): this {
     this.addRoute("PATCH", path, handlerOrConfig);
     return this;
@@ -740,25 +680,10 @@ export class Kage<
     path: string,
     handler: KageHandler<TDecorators, TState, TDerived>,
   ): this;
-  delete<
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
-  >(
+  delete(
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig<
-        TDecorators,
-        TState,
-        TDerived,
-        TBodySchema,
-        TQuerySchema,
-        TParamsSchema,
-        TResponseSchema
-      >,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): this {
     this.addRoute("DELETE", path, handlerOrConfig);
     return this;
@@ -786,25 +711,10 @@ export class Kage<
     config: KageRouteConfig<TDecorators, TState, TDerived>,
   ): this;
   head(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
-  head<
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
-  >(
+  head(
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig<
-        TDecorators,
-        TState,
-        TDerived,
-        TBodySchema,
-        TQuerySchema,
-        TParamsSchema,
-        TResponseSchema
-      >,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): this {
     this.addRoute("HEAD", path, handlerOrConfig);
     return this;
@@ -835,25 +745,10 @@ export class Kage<
     path: string,
     handler: KageHandler<TDecorators, TState, TDerived>,
   ): this;
-  options<
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
-  >(
+  options(
     path: string,
-    handlerOrConfig:
-      | KageHandler<TDecorators, TState, TDerived>
-      | KageRouteConfig<TDecorators, TState, TDerived>
-      | KageSchemaConfig<
-        TDecorators,
-        TState,
-        TDerived,
-        TBodySchema,
-        TQuerySchema,
-        TParamsSchema,
-        TResponseSchema
-      >,
+    // deno-lint-ignore no-explicit-any
+    handlerOrConfig: any,
   ): this {
     this.addRoute("OPTIONS", path, handlerOrConfig);
     return this;
