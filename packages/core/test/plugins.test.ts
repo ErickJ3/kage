@@ -7,7 +7,13 @@ import { describe, it } from "@std/testing/bdd";
 import { Kage } from "../src/app/mod.ts";
 import type { Middleware } from "../src/middleware/mod.ts";
 
-function createHandler(app: Kage): (req: Request) => Promise<Response> {
+function createHandler<
+  TDecorators extends Record<string, unknown>,
+  TState extends Record<string, unknown>,
+  TDerived extends Record<string, unknown>,
+>(
+  app: Kage<TDecorators, TState, TDerived>,
+): (req: Request) => Promise<Response> {
   return (app as unknown as {
     handleRequest: (req: Request) => Promise<Response>;
   }).handleRequest.bind(app);

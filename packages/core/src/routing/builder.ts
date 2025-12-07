@@ -47,32 +47,44 @@ function createTypedContext<TParams, TQuery, TBody>(
   query: TQuery,
   body: TBody,
 ): TypedContext<TParams, TQuery, TBody> {
-  return {
-    request: ctx.request,
-    params: ctx.params as TParams,
-    method: ctx.method,
-    headers: ctx.headers,
-    path: ctx.path,
-    get url() {
+  const typedCtx = Object.create(null);
+
+  for (const key of Object.keys(ctx)) {
+    typedCtx[key] = (ctx as unknown as Record<string, unknown>)[key];
+  }
+
+  typedCtx.request = ctx.request;
+  typedCtx.params = ctx.params as TParams;
+  typedCtx.method = ctx.method;
+  typedCtx.headers = ctx.headers;
+  typedCtx.path = ctx.path;
+  typedCtx.state = ctx.state;
+  typedCtx.store = (ctx as unknown as Record<string, unknown>).store;
+  typedCtx.query = query;
+  typedCtx.body = body;
+
+  Object.defineProperty(typedCtx, "url", {
+    get() {
       return ctx.url;
     },
-    query,
-    body,
-    state: ctx.state,
-    json: ctx.json.bind(ctx),
-    text: ctx.text.bind(ctx),
-    html: ctx.html.bind(ctx),
-    redirect: ctx.redirect.bind(ctx),
-    noContent: ctx.noContent.bind(ctx),
-    notFound: ctx.notFound.bind(ctx),
-    badRequest: ctx.badRequest.bind(ctx),
-    unauthorized: ctx.unauthorized.bind(ctx),
-    forbidden: ctx.forbidden.bind(ctx),
-    internalError: ctx.internalError.bind(ctx),
-    binary: ctx.binary.bind(ctx),
-    stream: ctx.stream.bind(ctx),
-    response: ctx.response.bind(ctx),
-  };
+    enumerable: true,
+  });
+
+  typedCtx.json = ctx.json.bind(ctx);
+  typedCtx.text = ctx.text.bind(ctx);
+  typedCtx.html = ctx.html.bind(ctx);
+  typedCtx.redirect = ctx.redirect.bind(ctx);
+  typedCtx.noContent = ctx.noContent.bind(ctx);
+  typedCtx.notFound = ctx.notFound.bind(ctx);
+  typedCtx.badRequest = ctx.badRequest.bind(ctx);
+  typedCtx.unauthorized = ctx.unauthorized.bind(ctx);
+  typedCtx.forbidden = ctx.forbidden.bind(ctx);
+  typedCtx.internalError = ctx.internalError.bind(ctx);
+  typedCtx.binary = ctx.binary.bind(ctx);
+  typedCtx.stream = ctx.stream.bind(ctx);
+  typedCtx.response = ctx.response.bind(ctx);
+
+  return typedCtx;
 }
 
 function validateSchema(
