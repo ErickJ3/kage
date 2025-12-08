@@ -25,6 +25,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+*.min.js
 
 # Build artifacts
 dist/
