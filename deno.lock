@@ -106,7 +106,7 @@
   },
   "workspace": {
     "members": {
-      "benchmarks": {
+      "bench": {
         "dependencies": [
           "jsr:@oak/oak@^17.2.0",
           "npm:hono@^4.10.7"

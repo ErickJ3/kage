@@ -1,7 +1,7 @@
 /**
  * Kage framework simple benchmark (no middleware).
  *
- * Run with: deno run --allow-net benchmarks/cross_framework/kage_simple_bench.ts
+ * Run with: deno run --allow-net bench/cross_framework/kage_simple_bench.ts
  */
 
 import { Kage } from "../../mod.ts";

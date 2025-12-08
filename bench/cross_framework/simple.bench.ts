@@ -1,7 +1,7 @@
 /**
  * Simple cross-framework benchmark using oha.
  *
- * Run with: deno run --allow-net --allow-run benchmarks/cross_framework/simple_bench.ts
+ * Run with: deno run --allow-net --allow-run bench/cross_framework/simple_bench.ts
  */
 
 interface BenchmarkResult {

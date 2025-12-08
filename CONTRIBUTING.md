@@ -104,7 +104,7 @@ describe("Router", () => {
 - Use `.bench.ts` suffix for benchmark files (e.g., `router.bench.ts`)
 - Tests live in `test/` directory within each package
 - Integration tests in `tests/` directory
-- Benchmarks in `benchmarks/` directory
+- Benchmarks in `bench/` directory
 
 ### Benchmarking
 
@@ -129,7 +129,7 @@ bench({
 });
 ```
 
-Keep benchmarks organized by package in `benchmarks/` directory. Run benchmarks
+Keep benchmarks organized by package in `bench/` directory. Run benchmarks
 before and after changes to detect regressions.
 
 ### Architecture Decisions
