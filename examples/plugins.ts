@@ -67,7 +67,7 @@ function timing<
     });
 }
 
-const app = new Kage({ development: true })
+const app = new Kage()
   .use(version)
   .use(counter({ logEvery: 5 }))
   .use(auth)

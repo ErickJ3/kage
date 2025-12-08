@@ -11,13 +11,7 @@ import {
   releaseRadixParams,
 } from "@kage/router";
 import type { Static, TSchema } from "@sinclair/typebox";
-import { createLogger, isLogger } from "~/app/logger.ts";
-import type {
-  KageConfig,
-  ListenOptions,
-  Logger,
-  LoggerConfig,
-} from "~/app/types.ts";
+import type { KageConfig, ListenOptions } from "~/app/types.ts";
 import { Context, ContextPool } from "~/context/mod.ts";
 import { compose, type Middleware } from "~/middleware/mod.ts";
 import { wrapTypedHandler } from "~/routing/builder.ts";
@@ -189,14 +183,11 @@ export class Kage<
   TDerived extends Record<string, unknown> = EmptyObject,
 > {
   private router: RadixRouter;
-  private config: KageConfig;
   private middleware: Middleware[];
   private composedMiddleware:
     | ((ctx: Context, next: () => Promise<Response>) => Promise<Response>)
     | null = null;
   private contextPool: ContextPool;
-  private isDev: boolean;
-  readonly log: Logger | undefined;
 
   private pluginState: PluginSystemState<TDecorators, TState>;
   private basePath: string;
@@ -204,14 +195,7 @@ export class Kage<
   constructor(config: KageConfig = {}) {
     this.router = new RadixRouter();
     this.middleware = [];
-    this.config = {
-      development: false,
-      basePath: "/",
-      ...config,
-    };
-    this.basePath = this.config.basePath ?? "/";
-    this.isDev = this.config.development ?? false;
-    this.log = this.initLogger(config.logger);
+    this.basePath = config.basePath ?? "/";
     this.contextPool = new ContextPool(256);
     this.contextPool.preallocate(64);
 
@@ -225,31 +209,6 @@ export class Kage<
       onBeforeHandleHooks: [],
       onAfterHandleHooks: [],
     };
-  }
-
-  private initLogger(
-    loggerOption: boolean | LoggerConfig | Logger | undefined,
-  ): Logger | undefined {
-    if (!loggerOption) {
-      return undefined;
-    }
-
-    if (loggerOption === true) {
-      return createLogger({
-        name: "kage",
-        level: this.isDev ? "debug" : "info",
-      });
-    }
-
-    if (isLogger(loggerOption)) {
-      return loggerOption;
-    }
-
-    return createLogger({
-      name: "kage",
-      level: this.isDev ? "debug" : "info",
-      ...loggerOption,
-    });
   }
 
   /**
@@ -1097,15 +1056,7 @@ export class Kage<
     }
   }
 
-  private createErrorResponse(error: unknown): Response {
-    if (this.log) {
-      this.log.error("Request handler error", {
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
-    } else if (this.isDev) {
-      console.error("Request handler error:", error);
-    }
+  private createErrorResponse(_error: unknown): Response {
     return new Response(INTERNAL_ERROR_BODY, { status: 500 });
   }
 
