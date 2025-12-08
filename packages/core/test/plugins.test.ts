@@ -447,6 +447,71 @@ describe("Plugin System", () => {
       );
       assertEquals(await v2Res.json(), { path: "/api/v2/users" });
     });
+
+    it("should support use() for plugins in groups", async () => {
+      const app = new Kage()
+        .derive(({ headers }) => ({
+          isAuth: headers.get("authorization") !== null,
+        }))
+        .group("/admin", (group) =>
+          group
+            .use((g) =>
+              g.onBeforeHandle((c) =>
+                c.isAuth ? undefined : c.unauthorized("Not authenticated")
+              )
+            )
+            .get("/dashboard", () => ({ admin: true })))
+        .get("/public", () => ({ public: true }));
+
+      const handler = createHandler(app);
+
+      const publicRes = await handler(new Request("http://localhost/public"));
+      assertEquals(await publicRes.json(), { public: true });
+
+      const unauth = await handler(
+        new Request("http://localhost/admin/dashboard"),
+      );
+      assertEquals(unauth.status, 401);
+
+      const auth = await handler(
+        new Request("http://localhost/admin/dashboard", {
+          headers: { authorization: "token" },
+        }),
+      );
+      assertEquals(await auth.json(), { admin: true });
+    });
+
+    it("should chain use() calls in groups", async () => {
+      const app = new Kage().group("/api", (group) =>
+        group
+          .use((g) => g.decorate("version", "1.0"))
+          .use((g) => g.derive(() => ({ prefix: "api" })))
+          .get("/info", (c) => ({
+            version: c.version,
+            prefix: c.prefix,
+          })));
+
+      const handler = createHandler(app);
+      const response = await handler(new Request("http://localhost/api/info"));
+      assertEquals(await response.json(), { version: "1.0", prefix: "api" });
+    });
+
+    it("should support plugins that add routes in groups", async () => {
+      const app = new Kage().group("/api", (group) =>
+        group
+          .use((g) => g.get("/health", () => ({ status: "ok" })))
+          .get("/data", () => ({ data: true })));
+
+      const handler = createHandler(app);
+
+      const healthRes = await handler(
+        new Request("http://localhost/api/health"),
+      );
+      assertEquals(await healthRes.json(), { status: "ok" });
+
+      const dataRes = await handler(new Request("http://localhost/api/data"));
+      assertEquals(await dataRes.json(), { data: true });
+    });
   });
 
   describe("lifecycle hooks", () => {
@@ -455,7 +520,7 @@ describe("Plugin System", () => {
         const intercepted: string[] = [];
 
         const app = new Kage()
-          .onRequest((req) => {
+          .onRequest((req, _c) => {
             intercepted.push(new URL(req.url).pathname);
             return null;
           })
@@ -469,7 +534,7 @@ describe("Plugin System", () => {
 
       it("should allow short-circuit with Response", async () => {
         const app = new Kage()
-          .onRequest((req) => {
+          .onRequest((req, _ctx) => {
             if (req.headers.get("x-block") === "yes") {
               return new Response("Blocked", { status: 403 });
             }
@@ -495,7 +560,7 @@ describe("Plugin System", () => {
 
       it("should allow request modification", async () => {
         const app = new Kage()
-          .onRequest((req) => {
+          .onRequest((req, _ctx) => {
             const newHeaders = new Headers(req.headers);
             newHeaders.set("x-injected", "value");
             return new Request(req.url, {
@@ -512,12 +577,72 @@ describe("Plugin System", () => {
         const response = await handler(new Request("http://localhost/test"));
         assertEquals(await response.json(), { injected: "value" });
       });
+
+      it("should pass RequestContext to hooks", async () => {
+        const app = new Kage()
+          .onRequest((_req, ctx) => {
+            ctx.set("startTime", 123);
+            ctx.set("custom", { foo: "bar" });
+            return null;
+          })
+          .onResponse((response, _req, ctx) => {
+            const start = ctx.get<number>("startTime");
+            const custom = ctx.get<{ foo: string }>("custom");
+            const headers = new Headers(response.headers);
+
+            headers.set("x-start", String(start));
+            headers.set("x-foo", custom?.foo ?? "none");
+
+            return new Response(response.body, {
+              status: response.status,
+              headers,
+            });
+          })
+          .get("/test", () => ({ ok: true }));
+
+        const handler = createHandler(app);
+        const response = await handler(new Request("http://localhost/test"));
+
+        assertEquals(response.headers.get("x-start"), "123");
+        assertEquals(response.headers.get("x-foo"), "bar");
+      });
+
+      it("should share RequestContext across all hooks", async () => {
+        const app = new Kage()
+          .onRequest((_req, ctx) => {
+            ctx.set("step1", true);
+            return null;
+          })
+          .onError((_error, _req, ctx) => {
+            if (ctx.has("step1")) {
+              ctx.set("errorHandled", true);
+            }
+            return null;
+          })
+          .onResponse((response, _req, ctx) => {
+            const step1 = ctx.get<boolean>("step1");
+            const headers = new Headers(response.headers);
+
+            headers.set("x-step1", String(step1));
+
+            return new Response(response.body, {
+              status: response.status,
+              headers,
+            });
+          })
+          .get("/test", () => ({ ok: true }));
+
+        const handler = createHandler(app);
+        const response = await handler(new Request("http://localhost/test"));
+
+        assertEquals(response.headers.get("x-step1"), "true");
+      });
     });
 
     describe("onResponse", () => {
       it("should transform responses", async () => {
         const app = new Kage()
-          .onResponse((response) => {
+          .onResponse((response, _req, _ctx) => {
             const newHeaders = new Headers(response.headers);
             newHeaders.set("x-processed", "true");
             return new Response(response.body, {
@@ -535,7 +660,7 @@ describe("Plugin System", () => {
 
       it("should chain multiple onResponse hooks", async () => {
         const app = new Kage()
-          .onResponse((response) => {
+          .onResponse((response, _req, _ctx) => {
             const newHeaders = new Headers(response.headers);
             newHeaders.set("x-hook1", "yes");
             return new Response(response.body, {
@@ -543,7 +668,7 @@ describe("Plugin System", () => {
               headers: newHeaders,
             });
           })
-          .onResponse((response) => {
+          .onResponse((response, _req, _ctx) => {
             const newHeaders = new Headers(response.headers);
             newHeaders.set("x-hook2", "yes");
             return new Response(response.body, {
@@ -564,7 +689,7 @@ describe("Plugin System", () => {
     describe("onError", () => {
       it("should handle errors", async () => {
         const app = new Kage()
-          .onError((error) => {
+          .onError((error, _req, _ctx) => {
             if (error instanceof Error && error.message === "custom") {
               return Response.json({ error: "handled" }, { status: 400 });
             }
@@ -592,6 +717,33 @@ describe("Plugin System", () => {
         const response = await handler(new Request("http://localhost/error"));
 
         assertEquals(response.status, 500);
+      });
+
+      it("should have access to RequestContext in onError", async () => {
+        const app = new Kage()
+          .onRequest((_req, ctx) => {
+            ctx.set("requestId", "req-123");
+            return null;
+          })
+          .onError((_error, _req, ctx) => {
+            const requestId = ctx.get<string>("requestId");
+            return Response.json(
+              { error: "failed", requestId },
+              { status: 500 },
+            );
+          })
+          .get("/error", () => {
+            throw new Error("boom");
+          });
+
+        const handler = createHandler(app);
+        const response = await handler(new Request("http://localhost/error"));
+
+        assertEquals(response.status, 500);
+        assertEquals(await response.json(), {
+          error: "failed",
+          requestId: "req-123",
+        });
       });
     });
 

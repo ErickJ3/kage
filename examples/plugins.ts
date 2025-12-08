@@ -1,68 +1,65 @@
-import { Kage } from "../packages/core/src/mod.ts";
+import { Kage, type P } from "../packages/core/src/mod.ts";
 
-// adds a version decorator
-function version<
-  TD extends Record<string, unknown>,
-  TS extends Record<string, unknown>,
-  TDR extends Record<string, unknown>,
->(app: Kage<TD, TS, TDR>) {
+// Plugin simples
+function version<TD extends P, TS extends P, TDR extends P>(
+  app: Kage<TD, TS, TDR>,
+) {
   return app.decorate("version", "1.0.0");
 }
 
-// factory: configurable request counter
+// Factory plugin
 function counter(options: { logEvery?: number } = {}) {
   const logEvery = options.logEvery ?? 10;
 
-  return <
-    TD extends Record<string, unknown>,
-    TS extends Record<string, unknown>,
-    TDR extends Record<string, unknown>,
-  >(app: Kage<TD, TS, TDR>) =>
-    app
-      .state("requestCount", 0)
-      .onAfterHandle((ctx, response) => {
-        ctx.store.requestCount++;
-        if (ctx.store.requestCount % logEvery === 0) {
-          console.log(`[counter] ${ctx.store.requestCount} requests served`);
-        }
-        return response;
-      });
+  return <TD extends P, TS extends P, TDR extends P>(app: Kage<TD, TS, TDR>) =>
+    app.state("requestCount", 0).onAfterHandle((c, res) => {
+      c.store.requestCount++;
+
+      if (c.store.requestCount % logEvery === 0) {
+        console.log(`[counter] ${c.store.requestCount} requests`);
+      }
+
+      return res;
+    });
 }
 
-// authentication with derive
-function auth<
-  TD extends Record<string, unknown>,
-  TS extends Record<string, unknown>,
-  TDR extends Record<string, unknown>,
->(app: Kage<TD, TS, TDR>) {
-  return app.derive((ctx) => {
-    const token = ctx.request.headers.get("Authorization");
+// Plugin com derive
+function auth<TD extends P, TS extends P, TDR extends P>(
+  app: Kage<TD, TS, TDR>,
+) {
+  return app.derive((c) => {
+    const token = c.headers.get("Authorization");
+
     if (!token?.startsWith("Bearer ")) {
       return { user: null, isAuthenticated: false as const };
     }
-    const userId = token.slice(7);
+
     return {
-      user: { id: userId, name: `User ${userId}` },
+      user: { id: token.slice(7), name: `User ${token.slice(7)}` },
       isAuthenticated: true as const,
     };
   });
 }
 
-// adds timing state
-function timing<
-  TD extends Record<string, unknown>,
-  TS extends Record<string, unknown>,
-  TDR extends Record<string, unknown>,
->(app: Kage<TD, TS, TDR>) {
+// Plugin com RequestContext
+function timing<TD extends P, TS extends P, TDR extends P>(
+  app: Kage<TD, TS, TDR>,
+) {
   return app
-    .state("startTime", Date.now())
-    .onResponse((response) => {
-      return new Response(response.body, {
-        status: response.status,
-        headers: {
-          ...Object.fromEntries(response.headers.entries()),
-          "X-Response-Time": `${Date.now()}ms`,
-        },
+    .onRequest((_, c) => {
+      c.set("startTime", performance.now());
+      return null;
+    })
+    .onResponse((res, _, c) => {
+      const start = c.get<number>("startTime") ?? 0;
+      const duration = (performance.now() - start).toFixed(2);
+      const headers = new Headers(res.headers);
+
+      headers.set("X-Response-Time", `${duration}ms`);
+
+      return new Response(res.body, {
+        status: res.status,
+        headers,
       });
     });
 }
@@ -72,59 +69,32 @@ const app = new Kage()
   .use(counter({ logEvery: 5 }))
   .use(auth)
   .use(timing)
-  .get("/", (ctx) =>
-    ctx.json({
-      name: "Kage Plugins",
-      version: ctx.version,
-      requestCount: ctx.store.requestCount,
-      endpoints: [
-        "GET /",
-        "GET /me",
-        "GET /admin (protected)",
-      ],
+  .get("/", (c) =>
+    c.json({
+      version: c.version,
+      requests: c.store.requestCount,
+      endpoints: ["GET /", "GET /me", "GET /admin", "GET /api/info"],
     }))
-  .get("/me", (ctx) =>
-    ctx.json({
-      authenticated: ctx.isAuthenticated,
-      user: ctx.user,
-    }))
-  .get("/admin", (ctx) => {
-    if (!ctx.isAuthenticated) {
-      return ctx.unauthorized("Authentication required");
-    }
-    return ctx.json({
-      message: "Welcome to admin panel",
-      user: ctx.user,
-    });
-  })
+  .get("/me", (c) => c.json({ authenticated: c.isAuthenticated, user: c.user }))
+  .group("/admin", (group) =>
+    group
+      .use((g) =>
+        g.onBeforeHandle((c) =>
+          c.isAuthenticated
+            ? undefined
+            : c.unauthorized("Authentication required")
+        )
+      )
+      .get("/", (c) => c.json({ message: "Admin panel", user: c.user }))
+      .get("/stats", (c) => c.json({ requests: c.store.requestCount })))
   .group("/api", (group) =>
     group
       .derive(() => ({ apiVersion: "v1" }))
-      .get("/info", (ctx) =>
-        ctx.json({
-          apiVersion: ctx.apiVersion,
-          user: ctx.user,
-        }))
-      .get("/stats", (ctx) =>
-        ctx.json({
-          totalRequests: ctx.store.requestCount,
-        })));
+      .get("/info", (c) => c.json({ apiVersion: c.apiVersion, user: c.user })));
 
 await app.listen({
   port: 8000,
   onListen: ({ hostname, port }) => {
-    console.log(`Plugin demo: http://${hostname}:${port}`);
-    console.log("\nTry these commands:");
-    console.log("  curl http://localhost:8000/");
-    console.log("  curl http://localhost:8000/me");
-    console.log(
-      '  curl -H "Authorization: Bearer alice" http://localhost:8000/me',
-    );
-    console.log("  curl http://localhost:8000/admin");
-    console.log(
-      '  curl -H "Authorization: Bearer alice" http://localhost:8000/admin',
-    );
-    console.log("  curl http://localhost:8000/api/info");
-    console.log("  curl http://localhost:8000/api/stats");
+    console.log(`Plugins: http://${hostname}:${port}`);
   },
 });

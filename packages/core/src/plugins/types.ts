@@ -49,11 +49,39 @@ export type PluginFn<
 > = (app: TApp) => TResult;
 
 /**
+ * Request context passed through all lifecycle hooks.
+ * Use `set` to store values and `get` to retrieve them.
+ *
+ * @example
+ * ```typescript
+ * app
+ *   .onRequest((req, ctx) => {
+ *     ctx.set("startTime", performance.now());
+ *     return null;
+ *   })
+ *   .onResponse((res, req, ctx) => {
+ *     const start = ctx.get("startTime") as number;
+ *     res.headers.set("X-Time", `${performance.now() - start}ms`);
+ *     return res;
+ *   });
+ * ```
+ */
+export interface RequestContext {
+  /** Store a value in the request context */
+  set<T>(key: string, value: T): void;
+  /** Retrieve a value from the request context */
+  get<T = unknown>(key: string): T | undefined;
+  /** Check if a key exists in the request context */
+  has(key: string): boolean;
+}
+
+/**
  * Lifecycle hook for request interception.
  * Can return a Response to short-circuit, Request to modify, or null to continue.
  */
 export type OnRequestHook = (
   request: Request,
+  ctx: RequestContext,
 ) => Request | Response | null | Promise<Request | Response | null>;
 
 /**
@@ -62,6 +90,7 @@ export type OnRequestHook = (
 export type OnResponseHook = (
   response: Response,
   request: Request,
+  ctx: RequestContext,
 ) => Response | Promise<Response>;
 
 /**
@@ -71,6 +100,7 @@ export type OnResponseHook = (
 export type OnErrorHook = (
   error: unknown,
   request: Request,
+  ctx: RequestContext,
 ) => Response | null | Promise<Response | null>;
 
 /**
@@ -145,3 +175,25 @@ export interface ScopeOptions {
 export interface GroupConfig {
   prefix: string;
 }
+
+/**
+ * @example
+ * ```typescript
+ * import { Kage, type P } from "@kage/core";
+ *
+ * // Instead of:
+ * function version<
+ *   TD extends Record<string, unknown>,
+ *   TS extends Record<string, unknown>,
+ *   TDR extends Record<string, unknown>,
+ * >(app: Kage<TD, TS, TDR>) {
+ *   return app.decorate("version", "1.0.0");
+ * }
+ *
+ * // Write:
+ * function version<TD extends P, TS extends P, TDR extends P>(app: Kage<TD, TS, TDR>) {
+ *   return app.decorate("version", "1.0.0");
+ * }
+ * ```
+ */
+export type P = Record<string, unknown>;

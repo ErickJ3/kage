@@ -65,8 +65,10 @@ export type {
   OnErrorHook,
   OnRequestHook,
   OnResponseHook,
+  P,
   PluginFn,
   PluginSystemState,
+  RequestContext,
   ScopeOptions,
 } from "~/plugins/mod.ts";
 

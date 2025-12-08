@@ -891,9 +891,16 @@ export class Kage<
   }
 
   private async handleRequest(req: Request): Promise<Response> {
+    const reqCtx = new Map<string, unknown>();
+    const requestContext = {
+      set: <T>(key: string, value: T) => reqCtx.set(key, value),
+      get: <T = unknown>(key: string) => reqCtx.get(key) as T | undefined,
+      has: (key: string) => reqCtx.has(key),
+    };
+
     // Execute onRequest hooks
     for (const hook of this.pluginState.onRequestHooks) {
-      const result = await hook(req);
+      const result = await hook(req, requestContext);
       if (result instanceof Response) {
         return result;
       }
@@ -933,19 +940,27 @@ export class Kage<
       // Execute onResponse hooks
       let finalResponse = response;
       for (const hook of this.pluginState.onResponseHooks) {
-        finalResponse = await hook(finalResponse, req);
+        finalResponse = await hook(finalResponse, req, requestContext);
       }
 
       return finalResponse;
     } catch (error) {
-      return this.handleError(error, req);
+      return this.handleError(error, req, requestContext);
     }
   }
 
-  private async handleError(error: unknown, req: Request): Promise<Response> {
+  private async handleError(
+    error: unknown,
+    req: Request,
+    requestContext: {
+      set: <T>(k: string, v: T) => void;
+      get: <T>(k: string) => T | undefined;
+      has: (k: string) => boolean;
+    },
+  ): Promise<Response> {
     // Execute onError hooks
     for (const hook of this.pluginState.onErrorHooks) {
-      const result = await hook(error, req);
+      const result = await hook(error, req, requestContext);
       if (result !== null) {
         return result;
       }
@@ -1160,6 +1175,36 @@ class KageGroup<
   ): this {
     this.localAfterHandleHooks.push(hook as OnAfterHandleHook<unknown>);
     return this;
+  }
+
+  /**
+   * Apply a plugin function to this group.
+   * Plugins can add decorators, derived values, hooks, and routes scoped to this group.
+   *
+   * @example
+   * ```typescript
+   * const requireAuth = (group) =>
+   *   group.onBeforeHandle((c) => {
+   *     if (!c.isAuthenticated) return c.unauthorized();
+   *   });
+   *
+   * app.group("/admin", (group) =>
+   *   group
+   *     .use(requireAuth)
+   *     .get("/dashboard", (c) => c.json({ admin: true }))
+   * );
+   * ```
+   */
+  use<
+    TResult extends KageGroup<
+      Record<string, unknown>,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >,
+  >(
+    plugin: (group: this) => TResult,
+  ): TResult {
+    return plugin(this);
   }
 
   get(
