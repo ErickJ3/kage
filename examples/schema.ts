@@ -1,6 +1,6 @@
 import { Kage, t } from "../packages/core/src/mod.ts";
 
-const app = new Kage({ development: true })
+const app = new Kage()
   .post("/users", {
     schemas: {
       body: t.Object({

@@ -20,7 +20,7 @@ import { Type } from "@sinclair/typebox";
 export const t = Type;
 export type { Static, TSchema } from "@sinclair/typebox";
 
-export { createLogger, Kage, KageGroup } from "~/app/mod.ts";
+export { Kage, KageGroup } from "~/app/mod.ts";
 export type {
   KageConfig,
   KageHandler,
@@ -29,9 +29,6 @@ export type {
   KageSchemaContext,
   KageSchemaHandler,
   ListenOptions,
-  Logger,
-  LoggerConfig,
-  LogLevel,
 } from "~/app/mod.ts";
 
 export { Context, ContextPool } from "~/context/mod.ts";

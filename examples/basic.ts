@@ -7,9 +7,7 @@
 
 import { Kage } from "../mod.ts";
 
-const app = new Kage({
-  development: true,
-});
+const app = new Kage();
 
 // Static route
 app.get("/", (ctx) =>

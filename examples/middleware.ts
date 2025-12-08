@@ -1,87 +1,81 @@
-import { Kage, t } from "../packages/core/src/mod.ts";
+import {
+  cors,
+  errorHandler,
+  Kage,
+  logger,
+  type Middleware,
+} from "../packages/core/src/mod.ts";
 
-const app = new Kage({ development: true })
-  .get("/", (ctx) =>
-    ctx.json({
-      name: "Kage Middleware Demo",
-      endpoints: [
-        "GET /public",
-        "GET /protected",
-        "POST /users",
-        "GET /search?q=<query>",
-        "GET /users/:id",
-        "DELETE /users/:id",
-        "GET /html",
-        "GET /redirect",
-      ],
+// rate limiter middleware
+function rateLimit(limit: number, windowMs: number): Middleware {
+  const requests = new Map<string, { count: number; resetAt: number }>();
+
+  return async (c, next) => {
+    const ip = c.headers.get("x-forwarded-for") ?? "unknown";
+    const now = Date.now();
+    const record = requests.get(ip);
+
+    if (!record || now > record.resetAt) {
+      requests.set(ip, { count: 1, resetAt: now + windowMs });
+    } else if (record.count >= limit) {
+      return c.json({ error: "many requests" }, 429);
+    } else {
+      record.count++;
+    }
+
+    return await next();
+  };
+}
+
+// request id middleware
+function requestId(): Middleware {
+  return async (_, next) => {
+    const id = crypto.randomUUID();
+    const response = await next();
+    response.headers.set("X-Request-ID", id);
+    return response;
+  };
+}
+
+// timing header middleware
+function timing(): Middleware {
+  return async (_, next) => {
+    const start = performance.now();
+    const response = await next();
+    const duration = (performance.now() - start).toFixed(2);
+    response.headers.set("X-Response-Time", `${duration}ms`);
+    return response;
+  };
+}
+
+const app = new Kage()
+  .use(
+    errorHandler((error, c) => {
+      console.error(`[ERROR] ${error.message}`);
+      return c.json({ error: error.message }, 500);
+    }),
+  )
+  .use(logger())
+  .use(cors({ origin: "*", credentials: true }))
+  .use(requestId())
+  .use(timing())
+  .use(rateLimit(100, 60_000)) // 100 req/min
+  .get("/", (c) =>
+    c.json({
+      message: "avaiable middlewares",
+      endpoints: ["GET /", "GET /error", "GET /slow"],
     }))
-  .get("/public", (ctx) =>
-    ctx.json({
-      message: "Public endpoint",
-      timestamp: new Date().toISOString(),
-    }))
-  .get("/protected", (ctx) => {
-    const token = ctx.headers.get("Authorization");
-    if (!token) return ctx.unauthorized("Missing token");
-    if (token !== "Bearer secret") return ctx.forbidden("Invalid token");
-    return ctx.json({
-      message: "Protected data",
-      user: { id: 1, name: "Alice" },
-    });
+  .get("/error", () => {
+    throw new Error("something wrong!");
   })
-  .post("/users", {
-    schemas: {
-      body: t.Object({
-        name: t.String({ minLength: 1 }),
-        email: t.String({ format: "email" }),
-      }),
-    },
-    handler: (ctx) =>
-      ctx.json({
-        id: crypto.randomUUID(),
-        ...ctx.body,
-        createdAt: new Date().toISOString(),
-      }, 201),
-  })
-  .get("/search", {
-    schemas: {
-      query: t.Object({
-        q: t.String({ minLength: 1 }),
-        limit: t.Optional(t.String()),
-      }),
-    },
-    handler: (ctx) =>
-      ctx.json({
-        query: ctx.query.q,
-        limit: ctx.query.limit ? parseInt(ctx.query.limit) : 10,
-        results: [
-          { id: 1, title: `Result for "${ctx.query.q}"` },
-          { id: 2, title: `Another result for "${ctx.query.q}"` },
-        ],
-      }),
-  })
-  .get("/users/:id", (ctx) => {
-    if (ctx.params.id === "999") return ctx.notFound("User not found");
-    return ctx.json({
-      id: ctx.params.id,
-      name: `User ${ctx.params.id}`,
-      email: `user${ctx.params.id}@example.com`,
-    });
-  })
-  .delete("/users/:id", (ctx) => ctx.noContent())
-  .get("/html", (ctx) =>
-    ctx.html(`
-      <!DOCTYPE html>
-      <html>
-        <head><title>Kage</title></head>
-        <body><h1>Hello from Kage!</h1></body>
-      </html>
-    `))
-  .get("/redirect", (ctx) => ctx.redirect("/public"));
+  .get("/slow", async (c) => {
+    await new Promise((r) => setTimeout(r, 500));
+    return c.json({ message: "slow response" });
+  });
 
 await app.listen({
   port: 8000,
   onListen: ({ hostname, port }) => {
-    console.log(`Middleware demo: http://${hostname}:${port}`);
+    console.log(`Kage middlewares: http://${hostname}:${port}`);
   },
 });

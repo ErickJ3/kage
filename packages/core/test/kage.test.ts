@@ -16,7 +16,6 @@ describe("Kage", () => {
 
     it("should accept custom config", () => {
       const app = new Kage({
-        development: true,
         basePath: "/api",
       });
       assertExists(app);
@@ -356,6 +355,318 @@ describe("Kage", () => {
       const response = await handler(request);
 
       assertEquals(response.status, 200);
+    });
+  });
+
+  describe("decorate", () => {
+    it("should add decorated values to context", async () => {
+      const app = new Kage()
+        .decorate("version", "1.0.0")
+        .get("/", (c) => c.json({ version: c.version }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { version: "1.0.0" });
+    });
+
+    it("should support multiple decorators", async () => {
+      const app = new Kage()
+        .decorate("a", 1)
+        .decorate("b", "two")
+        .get("/", (c) => c.json({ a: c.a, b: c.b }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { a: 1, b: "two" });
+    });
+
+    it("should support object decorators", async () => {
+      const db = { query: () => [{ id: 1 }] };
+      const app = new Kage()
+        .decorate("db", db)
+        .get("/", (c) => c.json({ data: c.db.query() }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { data: [{ id: 1 }] });
+    });
+  });
+
+  describe("state", () => {
+    it("should provide mutable state via store", async () => {
+      const app = new Kage().state("counter", 0).get("/", (c) => {
+        c.store.counter++;
+        return c.json({ count: c.store.counter });
+      });
+
+      const response1 = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response1.json(), { count: 1 });
+
+      const response2 = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response2.json(), { count: 2 });
+    });
+
+    it("should support multiple state values", async () => {
+      const app = new Kage()
+        .state("a", 10)
+        .state("b", "hello")
+        .get("/", (c) => c.json({ a: c.store.a, b: c.store.b }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { a: 10, b: "hello" });
+    });
+  });
+
+  describe("derive", () => {
+    it("should derive values from request", async () => {
+      const app = new Kage()
+        .derive((c) => ({
+          userAgent: c.headers.get("user-agent") ?? "unknown",
+        }))
+        .get("/", (c) => c.json({ ua: c.userAgent }));
+
+      const response = await app.fetch(
+        new Request("http://localhost:8000/", {
+          headers: { "user-agent": "test-agent" },
+        }),
+      );
+      assertEquals(await response.json(), { ua: "test-agent" });
+    });
+
+    it("should support async derive", async () => {
+      const app = new Kage()
+        .derive(async () => {
+          await new Promise((r) => setTimeout(r, 5));
+          return { computed: 42 };
+        })
+        .get("/", (c) => c.json({ value: c.computed }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { value: 42 });
+    });
+
+    it("should chain multiple derives", async () => {
+      const app = new Kage()
+        .derive(() => ({ a: 1 }))
+        .derive(() => ({ b: 2 }))
+        .get("/", (c) => c.json({ a: c.a, b: c.b }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { a: 1, b: 2 });
+    });
+  });
+
+  describe("hooks", () => {
+    it("onRequest should intercept before routing", async () => {
+      const app = new Kage()
+        .onRequest((req) => {
+          if (req.headers.get("x-blocked") === "true") {
+            return new Response("Blocked", { status: 403 });
+          }
+          return null;
+        })
+        .get("/", () => "OK");
+
+      const normal = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await normal.text(), "OK");
+
+      const blocked = await app.fetch(
+        new Request("http://localhost:8000/", {
+          headers: { "x-blocked": "true" },
+        }),
+      );
+      assertEquals(blocked.status, 403);
+    });
+
+    it("onResponse should transform response", async () => {
+      const app = new Kage()
+        .onResponse((response) => {
+          const headers = new Headers(response.headers);
+          headers.set("x-processed", "true");
+          return new Response(response.body, {
+            status: response.status,
+            headers,
+          });
+        })
+        .get("/", () => "OK");
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(response.headers.get("x-processed"), "true");
+    });
+
+    it("onError should handle errors", async () => {
+      const app = new Kage()
+        .onError((error) => {
+          return new Response(
+            JSON.stringify({ error: (error as Error).message }),
+            { status: 500, headers: { "content-type": "application/json" } },
+          );
+        })
+        .get("/", () => {
+          throw new Error("test error");
+        });
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(response.status, 500);
+      assertEquals(await response.json(), { error: "test error" });
+    });
+
+    it("onBeforeHandle should run before handler", async () => {
+      const order: string[] = [];
+      const app = new Kage()
+        .onBeforeHandle(() => {
+          order.push("before");
+        })
+        .get("/", () => {
+          order.push("handler");
+          return "OK";
+        });
+
+      await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(order, ["before", "handler"]);
+    });
+
+    it("onBeforeHandle can short-circuit with Response", async () => {
+      const app = new Kage()
+        .onBeforeHandle(() => new Response("Intercepted", { status: 401 }))
+        .get("/", () => "OK");
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(response.status, 401);
+      assertEquals(await response.text(), "Intercepted");
+    });
+
+    it("onAfterHandle should transform response", async () => {
+      const app = new Kage()
+        .onAfterHandle((_c, response) => {
+          const headers = new Headers(response.headers);
+          headers.set("x-after", "true");
+          return new Response(response.body, {
+            status: response.status,
+            headers,
+          });
+        })
+        .get("/", () => "OK");
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(response.headers.get("x-after"), "true");
+    });
+  });
+
+  describe("plugins", () => {
+    it("should apply plugin functions", async () => {
+      function myPlugin<
+        TD extends Record<string, unknown>,
+        TS extends Record<string, unknown>,
+        TDR extends Record<string, unknown>,
+      >(app: Kage<TD, TS, TDR>) {
+        return app.decorate("pluginValue", 123);
+      }
+
+      const app = new Kage()
+        .use(myPlugin)
+        .get("/", (c) => c.json({ value: c.pluginValue }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { value: 123 });
+    });
+
+    it("should chain multiple plugins", async () => {
+      function pluginA<
+        TD extends Record<string, unknown>,
+        TS extends Record<string, unknown>,
+        TDR extends Record<string, unknown>,
+      >(app: Kage<TD, TS, TDR>) {
+        return app.decorate("a", "A");
+      }
+
+      function pluginB<
+        TD extends Record<string, unknown>,
+        TS extends Record<string, unknown>,
+        TDR extends Record<string, unknown>,
+      >(app: Kage<TD, TS, TDR>) {
+        return app.decorate("b", "B");
+      }
+
+      const app = new Kage()
+        .use(pluginA)
+        .use(pluginB)
+        .get("/", (c) => c.json({ a: c.a, b: c.b }));
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.json(), { a: "A", b: "B" });
+    });
+  });
+
+  describe("groups", () => {
+    it("should create route group with prefix", async () => {
+      const app = new Kage().group(
+        "/api",
+        (group) =>
+          group.get("/users", () => "users").get("/posts", () => "posts"),
+      );
+
+      const users = await app.fetch(
+        new Request("http://localhost:8000/api/users"),
+      );
+      assertEquals(await users.text(), "users");
+
+      const posts = await app.fetch(
+        new Request("http://localhost:8000/api/posts"),
+      );
+      assertEquals(await posts.text(), "posts");
+    });
+
+    it("should scope decorators to group", async () => {
+      const app = new Kage()
+        .decorate("global", "global")
+        .group("/api", (group) =>
+          group
+            .decorate("scoped", "scoped")
+            .get(
+              "/test",
+              (c) => c.json({ global: c.global, scoped: c.scoped }),
+            ))
+        .get("/", (c) => c.json({ global: c.global }));
+
+      const apiRes = await app.fetch(
+        new Request("http://localhost:8000/api/test"),
+      );
+      assertEquals(await apiRes.json(), { global: "global", scoped: "scoped" });
+    });
+
+    it("should scope derives to group", async () => {
+      const app = new Kage().group("/api", (group) =>
+        group
+          .derive(() => ({ apiVersion: "v1" }))
+          .get("/info", (c) => c.json({ version: c.apiVersion })));
+
+      const response = await app.fetch(
+        new Request("http://localhost:8000/api/info"),
+      );
+      assertEquals(await response.json(), { version: "v1" });
+    });
+  });
+
+  describe("fetch method", () => {
+    it("should work as Request handler", async () => {
+      const app = new Kage().get("/", () => "Hello");
+
+      const response = await app.fetch(new Request("http://localhost:8000/"));
+      assertEquals(await response.text(), "Hello");
+    });
+
+    it("should handle all HTTP methods", async () => {
+      const app = new Kage()
+        .get("/test", () => "GET")
+        .post("/test", () => "POST")
+        .put("/test", () => "PUT")
+        .patch("/test", () => "PATCH")
+        .delete("/test", () => "DELETE");
+
+      for (const method of ["GET", "POST", "PUT", "PATCH", "DELETE"]) {
+        const response = await app.fetch(
+          new Request("http://localhost:8000/test", { method }),
+        );
+        assertEquals(await response.text(), method);
+      }
     });
   });
 });
