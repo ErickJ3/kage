@@ -35,8 +35,6 @@ export { Context, ContextPool } from "~/context/mod.ts";
 
 export { compose } from "~/middleware/mod.ts";
 export type { Middleware } from "~/middleware/mod.ts";
-export { compression, cors, errorHandler, logger } from "~/middleware/mod.ts";
-export type { CompressionOptions, CorsOptions } from "~/middleware/mod.ts";
 
 export {
   BadRequestError,

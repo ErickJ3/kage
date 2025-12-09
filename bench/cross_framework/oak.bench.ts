@@ -1,7 +1,7 @@
 /**
  * Oak framework benchmark.
  *
- * Run with: deno run --allow-net benchmarks/cross_framework/oak_bench.ts
+ * Run with: deno run --allow-net bench/cross_framework/oak_bench.ts
  */
 
 import { Application, Router } from "@oak/oak";

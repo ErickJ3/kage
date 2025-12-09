@@ -1,7 +1,7 @@
 /**
  * Hono framework benchmark.
  *
- * Run with: deno run --allow-net benchmarks/cross_framework/hono_bench.ts
+ * Run with: deno run --allow-net bench/cross_framework/hono_bench.ts
  */
 
 import { Hono } from "hono";

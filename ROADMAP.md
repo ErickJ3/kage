@@ -22,9 +22,6 @@ Deno's unique capabilities: native TypeScript, Web Workers, and Web Standards.
 - [x] Context API and middleware system
   - [x] Request/response abstraction
   - [x] Middleware composition
-  - [x] Error handling middleware
-  - [x] Built-in middleware (cors, logger)
-  - [x] Compression middleware
 - [x] Schema validation with TypeBox
   - [x] Request body validation
   - [x] Query parameter validation
@@ -64,17 +61,6 @@ Deno's unique capabilities: native TypeScript, Web Workers, and Web Standards.
   - Automatic schema extraction
   - Route documentation
   - Type-safe API clients
-- [x] Structured error handling
-  - [x] Custom error types (KageError, BadRequestError, NotFoundError, etc.)
-  - [x] Error transformation with defaultErrorTransformer
-  - [x] Development vs production modes (stack traces, details)
-  - [x] Validation errors with field-level details
-  - [x] Rate limit errors with Retry-After header
-- [x] Hot reload and development tooling
-  - [x] File watcher integration with debouncing
-  - [x] Dev server with auto-restart
-  - [x] Debug logging system with levels
-  - [x] CLI command (kage dev)
 - [x] Plugin system architecture
   - [x] Plugin lifecycle hooks (onRegister, onBeforeStart, onStart, onShutdown, onRequest, onResponse, onError)
   - [x] Configuration merging
@@ -192,9 +178,7 @@ worth building around exclusively.
 
 ### Why not extend Hono?
 
-Hono's multi-runtime design prevents tight Deno integration. Permission-aware
-routing and transparent workers require runtime-specific APIs that would break
-Hono's abstraction.
+Hono's multi-runtime design prevents tight Deno integration. transparent workers require runtime-specific APIs that would break Hono's abstraction.
 
 ### Why TypeBox for validation?
 

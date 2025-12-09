@@ -1,10 +1,4 @@
-import {
-  cors,
-  errorHandler,
-  Kage,
-  logger,
-  type Middleware,
-} from "../packages/core/src/mod.ts";
+import { Kage, type Middleware } from "../packages/core/src/mod.ts";
 
 // rate limiter middleware
 function rateLimit(limit: number, windowMs: number): Middleware {
@@ -49,14 +43,6 @@ function timing(): Middleware {
 }
 
 const app = new Kage()
-  .use(
-    errorHandler((error, c) => {
-      console.error(`[ERROR] ${error.message}`);
-      return c.json({ error: error.message }, 500);
-    }),
-  )
-  .use(logger())
-  .use(cors({ origin: "*", credentials: true }))
   .use(requestId())
   .use(timing())
   .use(rateLimit(100, 60_000)) // 100 req/min

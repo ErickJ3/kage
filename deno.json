@@ -7,17 +7,17 @@
     "./packages/router",
     "./packages/schema",
     "./packages/workers",
-    "./benchmarks"
+    "./bench"
   ],
   "bench": {
-    "include": ["benchmarks/**/*.bench.ts"]
+    "include": ["bench/**/*.bench.ts"]
   },
   "tasks": {
     "test": "deno test --allow-all --coverage=coverage",
     "test:watch": "deno test --allow-all --watch",
     "bench": "deno bench --allow-all",
-    "bench:server:kage": "deno run --allow-net benchmarks/simple_json.bench.ts",
-    "bench:server:hono": "deno run --allow-net benchmarks/hono_simple_json.bench.ts",
+    "bench:server:kage": "deno run --allow-net bench/simple_json.bench.ts",
+    "bench:server:hono": "deno run --allow-net bench/hono_simple_json.bench.ts",
     "check": "deno check packages/*/src/**/*.ts packages/*/test/**/*.ts",
     "lint": "deno lint",
     "fmt": "deno fmt",
