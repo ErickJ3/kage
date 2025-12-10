@@ -133,6 +133,12 @@
           "jsr:@std/testing@1",
           "npm:@sinclair/typebox@~0.34.33"
         ]
+      },
+      "packages/workers": {
+        "dependencies": [
+          "jsr:@std/assert@1",
+          "jsr:@std/testing@1"
+        ]
       }
     }
   }
