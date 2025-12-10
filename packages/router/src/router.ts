@@ -234,4 +234,3 @@ export class Router {
     return this.staticCache.size;
   }
 }
-

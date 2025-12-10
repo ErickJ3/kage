@@ -1055,11 +1055,11 @@ export class Kage<
       return result.then(
         (r) => {
           const response = this.resultToResponse(r);
-              this.contextPool.release(ctx);
+          this.contextPool.release(ctx);
           return response;
         },
         (error) => {
-              this.contextPool.release(ctx);
+          this.contextPool.release(ctx);
           throw error;
         },
       );
