@@ -1,6 +1,6 @@
 # @kage/core
 
-The fastest Deno web framework. Built for speed and security.
+Deno web framework.
 
 ## Install
 

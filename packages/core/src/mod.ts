@@ -1,5 +1,5 @@
 /**
- * Kage Core - High-performance web framework for Deno.
+ * Kage Core - Web framework for Deno.
  */
 
 import { Type } from "@sinclair/typebox";

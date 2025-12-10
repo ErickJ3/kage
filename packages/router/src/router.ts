@@ -1,5 +1,5 @@
 /**
- * High-performance Radix Tree Router
+ * Radix Tree Router
  *
  * @module
  */
@@ -43,7 +43,7 @@ function createNode(segment: string = ""): RadixNode {
 }
 
 /**
- * High-performance Radix Tree Router
+ * Radix Tree Router
  *
  * @example
  * ```typescript
@@ -97,7 +97,6 @@ export class Router {
       const firstChar = segment.charCodeAt(0);
 
       if (firstChar === COLON) {
-        // Parameter segment
         isStatic = false;
         paramNames.push(segment.slice(1));
         if (!node.paramChild) {
@@ -116,7 +115,6 @@ export class Router {
         node.wildcardRoute = { handler, paramNames: [...paramNames] };
         return;
       } else {
-        // Static segment
         let child = node.children.get(segment);
         if (!child) {
           child = createNode(segment);

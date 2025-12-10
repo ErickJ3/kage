@@ -1,7 +1,5 @@
 import { Kage } from "../mod.ts";
 
-// App types
-
 type AppDecorators = {
   db: { name: string; query: (sql: string) => unknown[] };
 };

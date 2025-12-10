@@ -1,14 +1,14 @@
 /**
  * @module @kage/workers
  *
- * A high-performance worker pool library for Deno.
- * Provides easy-to-use APIs for parallel task execution using Web Workers.
+ * Worker pool library for Deno.
+ * Provides APIs for parallel task execution using Web Workers.
  *
  * ## Features
  * - **Inline workers** - Create workers from functions with closure detection
  * - **External workers** - Use separate worker files for complex tasks
- * - **Priority scheduling** - High-priority tasks are processed first
- * - **Backpressure** - Control queue size and handle overload gracefully
+ * - **Priority scheduling** - Tasks can be prioritized
+ * - **Backpressure** - Control queue size and handle overload
  * - **Metrics** - Track performance with built-in metrics
  * - **Hot reload safe** - Stable worker names across HMR
  *
@@ -77,17 +77,13 @@ export {
 } from "~/inline.ts";
 export type { WorkerFunction, WorkerOptions } from "~/inline.ts";
 
-// Core pool
 export { WorkerPool } from "~/pool.ts";
 
-// Plugin/manager pattern
 export { createWorkerHandler, workers } from "~/plugin.ts";
 export type { WorkersConfig, WorkersManager, WorkerTask } from "~/plugin.ts";
 
-// Worker template for external workers
 export { defineTask } from "~/worker_template.ts";
 
-// Serialization utilities
 export { deserialize, extractTransferables, serialize } from "~/serializer.ts";
 
 // Scheduler (for advanced use cases)
@@ -107,7 +103,6 @@ export {
   PoolRegistry,
 } from "~/registry.ts";
 
-// Types
 export { QueueFullError } from "~/types.ts";
 export type {
   BackpressureStrategy,

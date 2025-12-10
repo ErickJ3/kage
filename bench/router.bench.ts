@@ -172,7 +172,6 @@ Deno.bench("router - realistic API lookup", () => {
   // Deep nesting
   router.add("GET", "/orgs/:orgId/teams/:teamId/members/:memberId", () => ({}));
 
-  // Wildcard
   router.add("GET", "/static/*", () => ({}));
 
   // Lookup a deeply nested route

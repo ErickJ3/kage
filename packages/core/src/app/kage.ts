@@ -1,6 +1,5 @@
 /**
  * Main Kage application class.
- * Optimized for maximum performance on Deno.
  */
 
 import {

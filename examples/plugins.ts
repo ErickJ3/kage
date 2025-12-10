@@ -1,13 +1,11 @@
 import { Kage, type P } from "../packages/core/src/mod.ts";
 
-// Plugin simples
 function version<TD extends P, TS extends P, TDR extends P>(
   app: Kage<TD, TS, TDR>,
 ) {
   return app.decorate("version", "1.0.0");
 }
 
-// Factory plugin
 function counter(options: { logEvery?: number } = {}) {
   const logEvery = options.logEvery ?? 10;
 
@@ -23,7 +21,6 @@ function counter(options: { logEvery?: number } = {}) {
     });
 }
 
-// Plugin com derive
 function auth<TD extends P, TS extends P, TDR extends P>(
   app: Kage<TD, TS, TDR>,
 ) {
@@ -41,7 +38,6 @@ function auth<TD extends P, TS extends P, TDR extends P>(
   });
 }
 
-// Plugin com RequestContext
 function timing<TD extends P, TS extends P, TDR extends P>(
   app: Kage<TD, TS, TDR>,
 ) {

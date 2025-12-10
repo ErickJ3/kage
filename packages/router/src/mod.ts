@@ -1,5 +1,5 @@
 /**
- * High-performance routing engine for Kage framework.
+ * Routing engine for Kage framework.
  *
  * @module
  */

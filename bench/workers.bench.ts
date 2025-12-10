@@ -1,7 +1,5 @@
 import { terminateAllInline, worker } from "../packages/workers/src/mod.ts";
 
-// workers
-
 const countPrimes = worker(
   (n: number) => {
     if (n < 2) return 0;
@@ -62,8 +60,6 @@ const computeHash = worker(
   { minWorkers: 4, maxWorkers: 8, name: "hash" },
 );
 
-// sync implementations
-
 function countPrimesSync(n: number): number {
   if (n < 2) return 0;
   const sieve = new Uint8Array(n + 1);
@@ -115,8 +111,6 @@ function computeHashSync(iterations: number): number {
   return hash;
 }
 
-// single task
-
 Deno.bench({
   name: "worker - primes(100_000)",
   async fn() {
@@ -159,8 +153,6 @@ Deno.bench({
   },
 });
 
-// parallel (4 tasks)
-
 Deno.bench({
   name: "workers parallel - 4x primes(100_000)",
   async fn() {
@@ -194,8 +186,6 @@ Deno.bench({
     matrixMultiplySync(100);
   },
 });
-
-// heavy (8 tasks)
 
 Deno.bench({
   name: "workers parallel - 8x hash(500_000)",

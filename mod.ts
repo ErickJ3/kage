@@ -15,8 +15,5 @@
  * @module
  */
 
-// Core framework exports
 export * from "@kage/core";
-
-// Router exports
 export * from "@kage/router";

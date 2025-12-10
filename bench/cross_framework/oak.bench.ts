@@ -40,7 +40,6 @@ router.get("/middleware", (ctx) => {
 
 const app = new Application();
 
-// Add middleware
 app.use(async (_ctx, next) => {
   await next();
 });

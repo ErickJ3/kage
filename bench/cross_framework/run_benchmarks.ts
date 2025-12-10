@@ -86,9 +86,8 @@ async function startServer(framework: {
         if (done) break;
         chunks.push(value);
       }
-    } catch {
-      // ignore
-    }
+      // deno-lint-ignore no-empty
+    } catch {}
 
     return new TextDecoder().decode(
       new Uint8Array(
@@ -121,15 +120,13 @@ async function startServer(framework: {
 async function stopServer(process: Deno.ChildProcess): Promise<void> {
   try {
     process.kill("SIGTERM");
-  } catch {
-    // ignore
-  }
+    // deno-lint-ignore no-empty
+  } catch {}
 
   try {
     await process.status;
-  } catch {
-    // ignore
-  }
+    // deno-lint-ignore no-empty
+  } catch {}
 }
 
 function parseOhaOutput(output: string): {
@@ -249,7 +246,6 @@ async function main() {
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
-  // Print results
   console.log("\n\n");
   console.log("Benchmark Results");
   console.log("=".repeat(80));

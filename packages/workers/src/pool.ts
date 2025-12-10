@@ -82,7 +82,6 @@ export class WorkerPool {
   private terminated = false;
   private pendingTimers: Set<number> = new Set();
 
-  // Backpressure
   private maxQueueSize: number;
   private backpressureStrategy: BackpressureStrategy;
   private backpressureTimeout: number;
@@ -90,7 +89,6 @@ export class WorkerPool {
   private backpressureWaiters: BackpressureWaiter[] = [];
   private pressureNotified = false;
 
-  // Metrics
   private completedTasksCount = 0;
   private failedTasksCount = 0;
   private totalTaskTime = 0;
@@ -107,7 +105,6 @@ export class WorkerPool {
     this.taskTimeout = options.taskTimeout ?? DEFAULT_TASK_TIMEOUT;
     this.trackMetrics = options.trackMetrics ?? true;
 
-    // Backpressure options
     this.maxQueueSize = options.maxQueueSize ?? Infinity;
     this.backpressureStrategy = options.backpressureStrategy ?? "reject";
     this.backpressureTimeout = options.backpressureTimeout ??
@@ -446,7 +443,6 @@ export class WorkerPool {
 
     const { timeout, transfer, priority = 0 } = options;
 
-    // Check backpressure
     if (this.checkBackpressure()) {
       if (this.backpressureStrategy === "reject") {
         throw new QueueFullError(this.scheduler.size());
