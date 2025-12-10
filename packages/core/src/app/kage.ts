@@ -26,12 +26,12 @@ import type {
 import type { PathParams } from "~/routing/types.ts";
 
 // deno-lint-ignore ban-types
-type EmptyObject = {};
+type Base = {};
 
 export type KageHandler<
-  TDecorators extends Record<string, unknown> = EmptyObject,
-  TState extends Record<string, unknown> = EmptyObject,
-  TDerived extends Record<string, unknown> = EmptyObject,
+  TDecorators extends Record<string, unknown> = Base,
+  TState extends Record<string, unknown> = Base,
+  TDerived extends Record<string, unknown> = Base,
   TParams extends Record<string, string> = Record<string, string>,
 > = (
   ctx: Omit<Context, "params"> & TDecorators & { store: TState } & TDerived & {
@@ -40,9 +40,9 @@ export type KageHandler<
 ) => unknown | Promise<unknown>;
 
 export interface KageRouteConfig<
-  TDecorators extends Record<string, unknown> = EmptyObject,
-  TState extends Record<string, unknown> = EmptyObject,
-  TDerived extends Record<string, unknown> = EmptyObject,
+  TDecorators extends Record<string, unknown> = Base,
+  TState extends Record<string, unknown> = Base,
+  TDerived extends Record<string, unknown> = Base,
   TParams extends Record<string, string> = Record<string, string>,
 > {
   handler: KageHandler<TDecorators, TState, TDerived, TParams>;
@@ -88,9 +88,9 @@ export interface KageSchemaContextBase<
 }
 
 export type KageSchemaContext<
-  TDecorators extends Record<string, unknown> = EmptyObject,
-  TState extends Record<string, unknown> = EmptyObject,
-  TDerived extends Record<string, unknown> = EmptyObject,
+  TDecorators extends Record<string, unknown> = Base,
+  TState extends Record<string, unknown> = Base,
+  TDerived extends Record<string, unknown> = Base,
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
   TBody = unknown,
@@ -100,9 +100,9 @@ export type KageSchemaContext<
   & TDerived;
 
 export type KageSchemaHandler<
-  TDecorators extends Record<string, unknown> = EmptyObject,
-  TState extends Record<string, unknown> = EmptyObject,
-  TDerived extends Record<string, unknown> = EmptyObject,
+  TDecorators extends Record<string, unknown> = Base,
+  TState extends Record<string, unknown> = Base,
+  TDerived extends Record<string, unknown> = Base,
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
   TBody = unknown,
@@ -126,9 +126,9 @@ export interface KageSchemas<
 }
 
 export interface KageSchemaConfig<
-  TDecorators extends Record<string, unknown> = EmptyObject,
-  TState extends Record<string, unknown> = EmptyObject,
-  TDerived extends Record<string, unknown> = EmptyObject,
+  TDecorators extends Record<string, unknown> = Base,
+  TState extends Record<string, unknown> = Base,
+  TDerived extends Record<string, unknown> = Base,
   TBodySchema extends TSchema | undefined = undefined,
   TQuerySchema extends TSchema | undefined = undefined,
   TParamsSchema extends TSchema | undefined = undefined,
@@ -189,9 +189,9 @@ const INTERNAL_ERROR_BODY = "Internal Server Error";
  * ```
  */
 export class Kage<
-  TDecorators extends Record<string, unknown> = EmptyObject,
-  TState extends Record<string, unknown> = EmptyObject,
-  TDerived extends Record<string, unknown> = EmptyObject,
+  TDecorators extends Record<string, unknown> = Base,
+  TState extends Record<string, unknown> = Base,
+  TDerived extends Record<string, unknown> = Base,
 > {
   private router: Router;
   private middleware: Middleware[];
@@ -1253,9 +1253,9 @@ export class Kage<
  * Route group with scoped plugin support.
  */
 class KageGroup<
-  TDecorators extends Record<string, unknown> = EmptyObject,
-  TState extends Record<string, unknown> = EmptyObject,
-  TDerived extends Record<string, unknown> = EmptyObject,
+  TDecorators extends Record<string, unknown> = Base,
+  TState extends Record<string, unknown> = Base,
+  TDerived extends Record<string, unknown> = Base,
 > {
   private routes: Array<{
     method: HttpMethod;
