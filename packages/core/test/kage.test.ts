@@ -16,7 +16,7 @@ describe("Kage", () => {
 
     it("should accept custom config", () => {
       const app = new Kage({
-        basePath: "/api",
+        prefix: "/api",
       });
       assertExists(app);
     });
@@ -58,8 +58,8 @@ describe("Kage", () => {
       app.options("/api", () => null);
     });
 
-    it("should apply basePath to routes", () => {
-      const app = new Kage({ basePath: "/api/v1" });
+    it("should apply prefix to routes", () => {
+      const app = new Kage({ prefix: "/api/v1" });
       app.get("/users", () => ({ users: [] }));
     });
   });
@@ -324,9 +324,9 @@ describe("Kage", () => {
     });
   });
 
-  describe("basePath handling", () => {
-    it("should handle basePath without trailing slash", async () => {
-      const app = new Kage({ basePath: "/api" });
+  describe("prefix handling", () => {
+    it("should handle prefix without trailing slash", async () => {
+      const app = new Kage({ prefix: "/api" });
       app.get("/users", () => "users");
 
       const handler = (
@@ -341,8 +341,8 @@ describe("Kage", () => {
       assertEquals(response.status, 200);
     });
 
-    it("should handle basePath with trailing slash", async () => {
-      const app = new Kage({ basePath: "/api/" });
+    it("should handle prefix with trailing slash", async () => {
+      const app = new Kage({ prefix: "/api/" });
       app.get("/users", () => "users");
 
       const handler = (

@@ -7,10 +7,17 @@
  */
 export interface KageConfig {
   /**
-   * Base path for all routes.
+   * Prefix for all routes in this app.
    * @default "/"
+   *
+   * @example
+   * ```typescript
+   * const authRoutes = new Kage({ prefix: "/auth" })
+   *   .get("/login", handler)  // Accessible at /auth/login
+   *   .post("/logout", handler); // Accessible at /auth/logout
+   * ```
    */
-  basePath?: string;
+  prefix?: string;
 }
 
 /**

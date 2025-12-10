@@ -25,6 +25,7 @@ import type {
   PluginFn,
   PluginSystemState,
 } from "~/plugins/types.ts";
+import type { PathParams } from "~/routing/types.ts";
 
 // deno-lint-ignore ban-types
 type EmptyObject = {};
@@ -33,16 +34,20 @@ export type KageHandler<
   TDecorators extends Record<string, unknown> = EmptyObject,
   TState extends Record<string, unknown> = EmptyObject,
   TDerived extends Record<string, unknown> = EmptyObject,
+  TParams extends Record<string, string> = Record<string, string>,
 > = (
-  ctx: Context & TDecorators & { store: TState } & TDerived,
+  ctx: Omit<Context, "params"> & TDecorators & { store: TState } & TDerived & {
+    params: TParams;
+  },
 ) => unknown | Promise<unknown>;
 
 export interface KageRouteConfig<
   TDecorators extends Record<string, unknown> = EmptyObject,
   TState extends Record<string, unknown> = EmptyObject,
   TDerived extends Record<string, unknown> = EmptyObject,
+  TParams extends Record<string, string> = Record<string, string>,
 > {
-  handler: KageHandler<TDecorators, TState, TDerived>;
+  handler: KageHandler<TDecorators, TState, TDerived, TParams>;
 }
 
 export interface KageSchemaContextBase<
@@ -150,6 +155,14 @@ export interface KageSchemaConfig<
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const OCTET_CONTENT_TYPE = "application/octet-stream";
 
+/** @internal Route definition for mounting */
+interface RawRoute {
+  method: HttpMethod;
+  path: string;
+  handler: Handler;
+  hasSchema: boolean;
+}
+
 const TEXT_HEADERS: HeadersInit = { "Content-Type": TEXT_CONTENT_TYPE };
 const BINARY_HEADERS: HeadersInit = { "Content-Type": OCTET_CONTENT_TYPE };
 
@@ -191,11 +204,12 @@ export class Kage<
 
   private pluginState: PluginSystemState<TDecorators, TState>;
   private basePath: string;
+  private rawRoutes: RawRoute[] = [];
 
   constructor(config: KageConfig = {}) {
     this.router = new RadixRouter();
     this.middleware = [];
-    this.basePath = config.basePath ?? "/";
+    this.basePath = config.prefix ?? "/";
     this.contextPool = new ContextPool(256);
     this.contextPool.preallocate(64);
 
@@ -488,12 +502,13 @@ export class Kage<
   }
 
   get<
+    TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TParamsSchema extends TSchema | undefined = undefined,
     TResponseSchema extends TSchema | undefined = undefined,
   >(
-    path: string,
+    path: TPath,
     config: KageSchemaConfig<
       TDecorators,
       TState,
@@ -504,11 +519,14 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
-  get(
-    path: string,
-    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  get<TPath extends string>(
+    path: TPath,
+    config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  get(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  get<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
+  ): this;
   get(
     path: string,
     // deno-lint-ignore no-explicit-any
@@ -519,12 +537,13 @@ export class Kage<
   }
 
   post<
+    TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TParamsSchema extends TSchema | undefined = undefined,
     TResponseSchema extends TSchema | undefined = undefined,
   >(
-    path: string,
+    path: TPath,
     config: KageSchemaConfig<
       TDecorators,
       TState,
@@ -535,11 +554,14 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
-  post(
-    path: string,
-    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  post<TPath extends string>(
+    path: TPath,
+    config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  post(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  post<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
+  ): this;
   post(
     path: string,
     // deno-lint-ignore no-explicit-any
@@ -550,12 +572,13 @@ export class Kage<
   }
 
   put<
+    TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TParamsSchema extends TSchema | undefined = undefined,
     TResponseSchema extends TSchema | undefined = undefined,
   >(
-    path: string,
+    path: TPath,
     config: KageSchemaConfig<
       TDecorators,
       TState,
@@ -566,11 +589,14 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
-  put(
-    path: string,
-    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  put<TPath extends string>(
+    path: TPath,
+    config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  put(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  put<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
+  ): this;
   put(
     path: string,
     // deno-lint-ignore no-explicit-any
@@ -581,12 +607,13 @@ export class Kage<
   }
 
   patch<
+    TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TParamsSchema extends TSchema | undefined = undefined,
     TResponseSchema extends TSchema | undefined = undefined,
   >(
-    path: string,
+    path: TPath,
     config: KageSchemaConfig<
       TDecorators,
       TState,
@@ -597,13 +624,13 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
-  patch(
-    path: string,
-    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  patch<TPath extends string>(
+    path: TPath,
+    config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  patch(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  patch<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
   patch(
     path: string,
@@ -615,12 +642,13 @@ export class Kage<
   }
 
   delete<
+    TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TParamsSchema extends TSchema | undefined = undefined,
     TResponseSchema extends TSchema | undefined = undefined,
   >(
-    path: string,
+    path: TPath,
     config: KageSchemaConfig<
       TDecorators,
       TState,
@@ -631,13 +659,13 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
-  delete(
-    path: string,
-    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  delete<TPath extends string>(
+    path: TPath,
+    config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  delete(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  delete<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
   delete(
     path: string,
@@ -649,12 +677,13 @@ export class Kage<
   }
 
   head<
+    TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TParamsSchema extends TSchema | undefined = undefined,
     TResponseSchema extends TSchema | undefined = undefined,
   >(
-    path: string,
+    path: TPath,
     config: KageSchemaConfig<
       TDecorators,
       TState,
@@ -665,11 +694,14 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
-  head(
-    path: string,
-    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  head<TPath extends string>(
+    path: TPath,
+    config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  head(path: string, handler: KageHandler<TDecorators, TState, TDerived>): this;
+  head<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
+  ): this;
   head(
     path: string,
     // deno-lint-ignore no-explicit-any
@@ -680,12 +712,13 @@ export class Kage<
   }
 
   options<
+    TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
     TQuerySchema extends TSchema | undefined = undefined,
     TParamsSchema extends TSchema | undefined = undefined,
     TResponseSchema extends TSchema | undefined = undefined,
   >(
-    path: string,
+    path: TPath,
     config: KageSchemaConfig<
       TDecorators,
       TState,
@@ -696,13 +729,13 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
-  options(
-    path: string,
-    config: KageRouteConfig<TDecorators, TState, TDerived>,
+  options<TPath extends string>(
+    path: TPath,
+    config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  options(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  options<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
   options(
     path: string,
@@ -730,6 +763,13 @@ export class Kage<
         wrappedHandler as Handler,
       );
       this.router.add(method, fullPath, pluginWrappedHandler);
+      // Store raw route for mounting
+      this.rawRoutes.push({
+        method,
+        path: fullPath,
+        handler: wrappedHandler as Handler,
+        hasSchema: true,
+      });
       return;
     }
 
@@ -739,6 +779,13 @@ export class Kage<
 
     const pluginWrappedHandler = this.wrapWithPlugins(handler as Handler);
     this.router.add(method, fullPath, pluginWrappedHandler);
+    // Store raw route for mounting
+    this.rawRoutes.push({
+      method,
+      path: fullPath,
+      handler: handler as Handler,
+      hasSchema: false,
+    });
   }
 
   private wrapWithPlugins(handler: Handler): Handler {
@@ -1104,6 +1151,97 @@ export class Kage<
     return Response.json(result);
   }
 
+  /**
+   * Mount another Kage instance at a prefix.
+   * All routes from the mounted app will be available under the specified prefix.
+   * Routes from the mounted app will be wrapped with the parent app's plugins.
+   *
+   * @example
+   * ```typescript
+   * // With explicit prefix
+   * const usersRouter = new Kage()
+   *   .get("/", (ctx) => ctx.json({ users: [] }))
+   *   .get("/:id", (ctx) => ctx.json({ id: ctx.params.id }));
+   *
+   * const app = new Kage()
+   *   .decorate("db", database)
+   *   .mount("/api/users", usersRouter)
+   *   .get("/health", (ctx) => ctx.json({ status: "ok" }));
+   *
+   * // Routes:
+   * // GET /api/users     -> usersRouter's "/" handler (with db decorator)
+   * // GET /api/users/:id -> usersRouter's "/:id" handler (with db decorator)
+   * // GET /health        -> app's "/health" handler
+   *
+   * // Using prefix from mounted app
+   * const authRoutes = new Kage({ prefix: "/auth" })
+   *   .get("/login", (ctx) => ctx.json({ route: "login" }))
+   *   .post("/logout", (ctx) => ctx.json({ route: "logout" }));
+   *
+   * const app = new Kage()
+   *   .mount(authRoutes);  // Uses "/auth" as prefix
+   *
+   * // Routes:
+   * // GET /auth/login
+   * // POST /auth/logout
+   * ```
+   */
+  // deno-lint-ignore no-explicit-any
+  mount(app: Kage<any, any, any>): this;
+  // deno-lint-ignore no-explicit-any
+  mount(prefix: string, app: Kage<any, any, any>): this;
+  mount(
+    // deno-lint-ignore no-explicit-any
+    prefixOrApp: string | Kage<any, any, any>,
+    // deno-lint-ignore no-explicit-any
+    app?: Kage<any, any, any>,
+  ): this {
+    let prefix: string;
+    let mountedAppBasePath: string;
+    let mountedApp: Kage<
+      Record<string, unknown>,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >;
+
+    if (typeof prefixOrApp === "string") {
+      prefix = prefixOrApp;
+      mountedApp = app!;
+      mountedAppBasePath = mountedApp._getBasePath();
+    } else {
+      mountedApp = prefixOrApp;
+      mountedAppBasePath = mountedApp._getBasePath();
+      prefix = mountedAppBasePath;
+    }
+
+    const normalizedPrefix = this.normalizePath(this.basePath, prefix);
+    const routes = mountedApp._getRoutes();
+
+    for (const route of routes) {
+      let relativePath = route.path;
+      if (
+        mountedAppBasePath !== "/" &&
+        relativePath.startsWith(mountedAppBasePath)
+      ) {
+        relativePath = relativePath.slice(mountedAppBasePath.length) || "/";
+      }
+      relativePath = relativePath === "/" ? "" : relativePath;
+      const fullPath = this.normalizePath(normalizedPrefix, relativePath);
+
+      const pluginWrappedHandler = this.wrapWithPlugins(route.handler);
+      this.router.add(route.method, fullPath, pluginWrappedHandler);
+
+      this.rawRoutes.push({
+        method: route.method,
+        path: fullPath,
+        handler: route.handler,
+        hasSchema: route.hasSchema,
+      });
+    }
+
+    return this;
+  }
+
   /** @internal Used by KageGroup to register routes on parent */
   _addRouteInternal(method: HttpMethod, path: string, handler: Handler): void {
     this.router.add(method, path, handler);
@@ -1112,6 +1250,16 @@ export class Kage<
   /** @internal Get plugin state for groups */
   _getPluginState(): PluginSystemState<TDecorators, TState> {
     return this.pluginState;
+  }
+
+  /** @internal Get raw routes for mounting */
+  _getRoutes(): RawRoute[] {
+    return this.rawRoutes;
+  }
+
+  /** @internal Get base path for mounting without prefix */
+  _getBasePath(): string {
+    return this.basePath;
   }
 }
 
@@ -1207,57 +1355,57 @@ class KageGroup<
     return plugin(this);
   }
 
-  get(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  get<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this {
     this.addRoute("GET", path, handler as Handler);
     return this;
   }
 
-  post(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  post<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this {
     this.addRoute("POST", path, handler as Handler);
     return this;
   }
 
-  put(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  put<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this {
     this.addRoute("PUT", path, handler as Handler);
     return this;
   }
 
-  patch(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  patch<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this {
     this.addRoute("PATCH", path, handler as Handler);
     return this;
   }
 
-  delete(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  delete<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this {
     this.addRoute("DELETE", path, handler as Handler);
     return this;
   }
 
-  head(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  head<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this {
     this.addRoute("HEAD", path, handler as Handler);
     return this;
   }
 
-  options(
-    path: string,
-    handler: KageHandler<TDecorators, TState, TDerived>,
+  options<TPath extends string>(
+    path: TPath,
+    handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this {
     this.addRoute("OPTIONS", path, handler as Handler);
     return this;
