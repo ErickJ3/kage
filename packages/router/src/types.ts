@@ -16,14 +16,6 @@ export type Handler<TContext = any> = (
   ctx: TContext,
 ) => unknown | Promise<unknown>;
 
-export interface Route {
-  method: HttpMethod;
-  pattern: RegExp;
-  handler: Handler;
-  paramNames: string[];
-  path: string;
-}
-
 export interface Match {
   handler: Handler;
   params: Record<string, string>;

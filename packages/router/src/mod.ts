@@ -4,6 +4,5 @@
  * @module
  */
 
-export { releaseParams, Router } from "~/router.ts";
-export { RadixRouter, releaseParams as releaseRadixParams } from "~/radix.ts";
-export type { Handler, HttpMethod, Match, Route } from "~/types.ts";
+export { Router } from "~/router.ts";
+export type { Handler, HttpMethod, Match } from "~/types.ts";
