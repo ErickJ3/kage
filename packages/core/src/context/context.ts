@@ -11,6 +11,9 @@ const HTML_CONTENT_TYPE = "text/html; charset=utf-8";
 const TEXT_HEADERS = Object.freeze({ "Content-Type": TEXT_CONTENT_TYPE });
 const HTML_HEADERS = Object.freeze({ "Content-Type": HTML_CONTENT_TYPE });
 
+const TEXT_INIT_200: ResponseInit = { headers: TEXT_HEADERS };
+const HTML_INIT_200: ResponseInit = { headers: HTML_HEADERS };
+
 /**
  * Request context passed to handlers and middleware.
  *
@@ -228,12 +231,9 @@ export class Context {
    */
   text(text: string, status = 200): Response {
     if (status === 200) {
-      return new Response(text, { headers: TEXT_HEADERS });
+      return new Response(text, TEXT_INIT_200);
     }
-    return new Response(text, {
-      status,
-      headers: TEXT_HEADERS,
-    });
+    return new Response(text, { status, headers: TEXT_HEADERS });
   }
 
   /**
@@ -244,12 +244,9 @@ export class Context {
    */
   html(html: string, status = 200): Response {
     if (status === 200) {
-      return new Response(html, { headers: HTML_HEADERS });
+      return new Response(html, HTML_INIT_200);
     }
-    return new Response(html, {
-      status,
-      headers: HTML_HEADERS,
-    });
+    return new Response(html, { status, headers: HTML_HEADERS });
   }
 
   /**
