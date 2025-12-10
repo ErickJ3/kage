@@ -2,6 +2,7 @@ const packages = [
   "packages/router/deno.json",
   "packages/core/deno.json",
   "packages/schema/deno.json",
+  "packages/workers/deno.json",
 ];
 
 const version = Deno.args[0];
