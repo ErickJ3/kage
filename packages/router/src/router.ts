@@ -1,38 +1,49 @@
 /**
- * High-performance router using RegExp-based matching.
+ * High-performance Radix Tree Router
  *
- * Design:
- * - Map for O(1) method lookup
- * - Routes stored in registration order for predictable priority
- * - RegExp patterns compiled once at registration
- * - Parameter extraction with pre-computed param names
- * - Object pooling for params to reduce GC pressure
+ * @module
  */
 
-import type { Handler, HttpMethod, Match, Route } from "~/types.ts";
+import type { Handler, HttpMethod, Match } from "~/types.ts";
 
-// Frozen empty params object for static routes - single allocation
-const EMPTY_PARAMS: Record<string, string> = Object.freeze(
-  Object.create(null),
-);
+// Frozen empty params - single allocation, reused everywhere
+const EMPTY_PARAMS: Record<string, string> = Object.freeze(Object.create(null));
 
-// Simple params creation - pooling adds overhead for small objects
-function createParams(): Record<string, string> {
-  return Object.create(null);
+// Character codes for fast comparison
+const SLASH = 47; // '/'
+const COLON = 58; // ':'
+const STAR = 42; // '*'
+
+interface RouteData {
+  handler: Handler;
+  paramNames: string[];
 }
 
-// No-op release - GC handles small short-lived objects efficiently
-function releaseParams(_params: Record<string, string>): void {
-  // Intentionally empty - V8's GC is optimized for short-lived objects
+interface RadixNode {
+  // The path segment this node represents
+  segment: string;
+  // Handler at this node (if terminal)
+  route: RouteData | null;
+  // Static children indexed by full segment
+  children: Map<string, RadixNode>;
+  // Parametric child node (:param)
+  paramChild: RadixNode | null;
+  // Wildcard route (*)
+  wildcardRoute: RouteData | null;
 }
 
-interface StaticCacheEntry {
-  route: Route;
-  match: Match;
+function createNode(segment: string = ""): RadixNode {
+  return {
+    segment,
+    route: null,
+    children: new Map(),
+    paramChild: null,
+    wildcardRoute: null,
+  };
 }
 
 /**
- * Router class for registering and matching HTTP routes.
+ * High-performance Radix Tree Router
  *
  * @example
  * ```typescript
@@ -48,173 +59,179 @@ interface StaticCacheEntry {
  * ```
  */
 export class Router {
-  private routes: Map<HttpMethod, Route[]>;
-  private staticCache: Map<HttpMethod, Map<string, StaticCacheEntry>>;
+  private trees: Map<HttpMethod, RadixNode>;
+  private staticCache: Map<string, Match>;
 
   constructor() {
-    this.routes = new Map();
+    this.trees = new Map();
     this.staticCache = new Map();
   }
 
   /**
-   * Register a new route.
-   *
-   * @throws {Error} If route is already registered or path doesn't start with /
+   * Add a route
    */
   add(method: HttpMethod, path: string, handler: Handler): void {
-    if (!path.startsWith("/")) {
+    if (path.charCodeAt(0) !== SLASH) {
       throw new Error(`Route path must start with /: ${path}`);
     }
 
-    const methodRoutes = this.routes.get(method) ?? [];
-    const duplicate = methodRoutes.find((r) => r.path === path);
-    if (duplicate) {
+    let tree = this.trees.get(method);
+    if (!tree) {
+      tree = createNode();
+      this.trees.set(method, tree);
+    }
+
+    const paramNames: string[] = [];
+    let node = tree;
+    let isStatic = true;
+    let i = 1; // Skip leading slash
+    const len = path.length;
+
+    while (i < len) {
+      // Find segment end
+      let j = i;
+      while (j < len && path.charCodeAt(j) !== SLASH) j++;
+      const segment = path.slice(i, j);
+      i = j + 1; // Move past slash
+
+      const firstChar = segment.charCodeAt(0);
+
+      if (firstChar === COLON) {
+        // Parameter segment
+        isStatic = false;
+        paramNames.push(segment.slice(1));
+        if (!node.paramChild) {
+          node.paramChild = createNode("");
+        }
+        node = node.paramChild;
+      } else if (firstChar === STAR) {
+        // Wildcard - consumes rest of path
+        isStatic = false;
+        paramNames.push("*");
+        if (node.wildcardRoute) {
+          throw new Error(
+            `Wildcard route already registered: ${method} ${path}`,
+          );
+        }
+        node.wildcardRoute = { handler, paramNames: [...paramNames] };
+        return;
+      } else {
+        // Static segment
+        let child = node.children.get(segment);
+        if (!child) {
+          child = createNode(segment);
+          node.children.set(segment, child);
+        }
+        node = child;
+      }
+    }
+
+    // Register at terminal node
+    if (node.route) {
       throw new Error(`Route already registered: ${method} ${path}`);
     }
-
-    const { pattern, paramNames } = this.pathToRegExp(path);
-
-    const route: Route = {
-      method,
-      pattern,
+    node.route = {
       handler,
-      paramNames,
-      path,
+      paramNames: paramNames.length > 0 ? [...paramNames] : [],
     };
 
-    const isStatic = paramNames.length === 0 && !path.includes("*");
-
-    if (!this.routes.has(method)) {
-      this.routes.set(method, []);
-    }
-    this.routes.get(method)!.push(route);
-
+    // Cache static routes for O(1) lookup
     if (isStatic) {
-      if (!this.staticCache.has(method)) {
-        this.staticCache.set(method, new Map());
-      }
-      this.staticCache.get(method)!.set(path, {
-        route,
-        match: {
-          handler: route.handler,
-          params: EMPTY_PARAMS,
-        },
+      this.staticCache.set(`${method}:${path}`, {
+        handler,
+        params: EMPTY_PARAMS,
       });
     }
   }
 
   /**
-   * Find a matching route for the given method and path.
+   * Find a matching route - hot path optimized
    */
   find(method: HttpMethod, path: string): Match | null {
-    // Fast path: static route cache lookup
-    const methodCache = this.staticCache.get(method);
-    if (methodCache) {
-      const cached = methodCache.get(path);
-      if (cached) {
-        return cached.match;
+    // Fast path: O(1) static cache lookup
+    const cached = this.staticCache.get(`${method}:${path}`);
+    if (cached) return cached;
+
+    const tree = this.trees.get(method);
+    if (!tree) return null;
+
+    // Dynamic matching with inline parsing
+    const paramValues: string[] = [];
+    const route = this.match(tree, path, 1, paramValues);
+
+    if (route) {
+      // Build params object
+      const paramNames = route.paramNames;
+      if (paramNames.length === 0) {
+        return { handler: route.handler, params: EMPTY_PARAMS };
       }
+
+      const params: Record<string, string> = Object.create(null);
+      for (let i = 0; i < paramNames.length; i++) {
+        params[paramNames[i]] = paramValues[i];
+      }
+      return { handler: route.handler, params };
     }
 
-    // Dynamic route matching
-    const methodRoutes = this.routes.get(method);
-    if (!methodRoutes) {
-      return null;
+    return null;
+  }
+
+  private match(
+    node: RadixNode,
+    path: string,
+    start: number,
+    paramValues: string[],
+  ): RouteData | null {
+    const len = path.length;
+
+    // End of path - check for route at current node
+    if (start >= len) {
+      return node.route;
     }
 
-    const len = methodRoutes.length;
-    for (let i = 0; i < len; i++) {
-      const route = methodRoutes[i];
-      const regexMatch = route.pattern.exec(path);
-      if (regexMatch) {
-        const paramNames = route.paramNames;
-        const paramLen = paramNames.length;
+    // Find current segment
+    let end = start;
+    while (end < len && path.charCodeAt(end) !== SLASH) end++;
+    const segment = path.slice(start, end);
+    const nextStart = end + 1;
 
-        // Create params object
-        const params = createParams();
-        for (let j = 0; j < paramLen; j++) {
-          params[paramNames[j]] = regexMatch[j + 1];
-        }
+    // 1. Try static child first (most common, most specific)
+    const staticChild = node.children.get(segment);
+    if (staticChild) {
+      const result = this.match(staticChild, path, nextStart, paramValues);
+      if (result) return result;
+    }
 
-        return {
-          handler: route.handler,
-          params,
-        };
-      }
+    // 2. Try parametric child
+    if (node.paramChild) {
+      paramValues.push(segment);
+      const result = this.match(node.paramChild, path, nextStart, paramValues);
+      if (result) return result;
+      paramValues.pop();
+    }
+
+    // 3. Try wildcard (consumes everything from current position)
+    if (node.wildcardRoute) {
+      paramValues.push(path.slice(start));
+      return node.wildcardRoute;
     }
 
     return null;
   }
 
   /**
-   * Release params object back to the pool.
-   * Should be called after request handling is complete.
-   */
-  releaseParams(params: Record<string, string>): void {
-    if (params !== EMPTY_PARAMS) {
-      releaseParams(params);
-    }
-  }
-
-  /**
-   * Convert path pattern to RegExp with parameter extraction.
-   *
-   * Supports:
-   * - Static: /users
-   * - Named parameters: /users/:id
-   * - Multiple parameters: /users/:userId/posts/:postId
-   * - Wildcard: /files/*
-   */
-  private pathToRegExp(path: string): {
-    pattern: RegExp;
-    paramNames: string[];
-  } {
-    const paramNames: string[] = [];
-
-    let pattern = path.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-
-    pattern = pattern.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, name) => {
-      paramNames.push(name);
-      return "([^/]+)";
-    });
-
-    pattern = pattern.replace(/\*/g, "(.*)");
-
-    pattern = `^${pattern}$`;
-
-    return {
-      pattern: new RegExp(pattern),
-      paramNames,
-    };
-  }
-
-  /**
-   * Get all registered routes.
-   */
-  getRoutes(): Route[] {
-    const allRoutes: Route[] = [];
-    for (const routes of this.routes.values()) {
-      allRoutes.push(...routes);
-    }
-    return allRoutes;
-  }
-
-  /**
-   * Remove all routes.
+   * Clear all routes
    */
   clear(): void {
-    this.routes.clear();
+    this.trees.clear();
     this.staticCache.clear();
   }
 
+  /**
+   * Get static cache size (for debugging)
+   */
   getStaticCacheSize(): number {
-    let size = 0;
-    for (const methodCache of this.staticCache.values()) {
-      size += methodCache.size;
-    }
-    return size;
+    return this.staticCache.size;
   }
 }
 
-// Export for external use
-export { releaseParams };

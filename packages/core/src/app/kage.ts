@@ -7,8 +7,7 @@ import {
   type Handler,
   type HttpMethod,
   type Match,
-  RadixRouter,
-  releaseRadixParams,
+  Router,
 } from "@kage/router";
 import type { Static, TSchema } from "@sinclair/typebox";
 import type { KageConfig, ListenOptions } from "~/app/types.ts";
@@ -195,7 +194,7 @@ export class Kage<
   TState extends Record<string, unknown> = EmptyObject,
   TDerived extends Record<string, unknown> = EmptyObject,
 > {
-  private router: RadixRouter;
+  private router: Router;
   private middleware: Middleware[];
   private composedMiddleware:
     | ((ctx: Context, next: () => Promise<Response>) => Promise<Response>)
@@ -207,7 +206,7 @@ export class Kage<
   private rawRoutes: RawRoute[] = [];
 
   constructor(config: KageConfig = {}) {
-    this.router = new RadixRouter();
+    this.router = new Router();
     this.middleware = [];
     this.basePath = config.prefix ?? "/";
     this.contextPool = new ContextPool(256);
@@ -1039,18 +1038,15 @@ export class Kage<
     ctx: Context,
     handler: Handler,
   ): Response | Promise<Response> {
-    const params = ctx.params;
     let result: unknown;
     try {
       result = handler(ctx);
     } catch (error) {
-      releaseRadixParams(params);
       this.contextPool.release(ctx);
       throw error;
     }
 
     if (result instanceof Response) {
-      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return result;
     }
@@ -1059,20 +1055,17 @@ export class Kage<
       return result.then(
         (r) => {
           const response = this.resultToResponse(r);
-          releaseRadixParams(params);
-          this.contextPool.release(ctx);
+              this.contextPool.release(ctx);
           return response;
         },
         (error) => {
-          releaseRadixParams(params);
-          this.contextPool.release(ctx);
+              this.contextPool.release(ctx);
           throw error;
         },
       );
     }
 
     const response = this.resultToResponse(result);
-    releaseRadixParams(params);
     this.contextPool.release(ctx);
     return response;
   }
@@ -1081,17 +1074,14 @@ export class Kage<
     ctx: Context,
     handler: Handler,
   ): Promise<Response> {
-    const params = ctx.params;
     try {
       const response = await this.middleware[0](ctx, async () => {
         const result = await handler(ctx);
         return this.resultToResponse(result);
       });
-      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
-      releaseRadixParams(params);
       this.contextPool.release(ctx);
       throw error;
     }
@@ -1101,18 +1091,15 @@ export class Kage<
     ctx: Context,
     handler: Handler,
   ): Promise<Response> {
-    const params = ctx.params;
     try {
       const composed = this.getComposedMiddleware();
       const response = await composed(ctx, async () => {
         const result = await handler(ctx);
         return this.resultToResponse(result);
       });
-      releaseRadixParams(params);
       this.contextPool.release(ctx);
       return response;
     } catch (error) {
-      releaseRadixParams(params);
       this.contextPool.release(ctx);
       throw error;
     }
