@@ -110,12 +110,12 @@ export class PoolRegistry {
 /**
  * Registry for inline workers created with `worker()`.
  */
-export const inlineRegistry = new PoolRegistry();
+export const inlineRegistry: PoolRegistry = new PoolRegistry();
 
 /**
  * Registry for parallel executors created with `parallel()`.
  */
-export const parallelRegistry = new PoolRegistry();
+export const parallelRegistry: PoolRegistry = new PoolRegistry();
 
 /**
  * Generates a hash for function content (djb2 algorithm).

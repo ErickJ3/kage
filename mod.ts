@@ -16,7 +16,7 @@
  */
 
 // Core framework exports
-export * from "./packages/core/src/mod.ts";
+export * from "@kage/core";
 
 // Router exports
-export * from "./packages/router/src/mod.ts";
+export * from "@kage/router";
