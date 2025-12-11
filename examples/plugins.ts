@@ -1,11 +1,26 @@
+/**
+ * Kage Plugins Example
+ *
+ * Plugins are functions that extend a Kage instance using core context APIs:
+ * - .decorate() - Add immutable singleton values to context
+ * - .state() - Add mutable global state accessible via ctx.store
+ * - .derive() - Compute per-request values from headers, params, etc.
+ * - Lifecycle hooks: onRequest, onResponse, onError, onBeforeHandle, onAfterHandle
+ *
+ * A plugin receives a Kage instance and returns a modified one.
+ * Plugins are applied via .use(plugin) and can be composed together.
+ */
+
 import { Kage, type P } from "../packages/core/src/mod.ts";
 
+// Plugin: adds a version decorator to context
 function version<TD extends P, TS extends P, TDR extends P>(
   app: Kage<TD, TS, TDR>,
 ) {
   return app.decorate("version", "1.0.0");
 }
 
+// Plugin factory: adds request counting with configurable logging
 function counter(options: { logEvery?: number } = {}) {
   const logEvery = options.logEvery ?? 10;
 
@@ -21,6 +36,7 @@ function counter(options: { logEvery?: number } = {}) {
     });
 }
 
+// Plugin: derives authentication info from headers
 function auth<TD extends P, TS extends P, TDR extends P>(
   app: Kage<TD, TS, TDR>,
 ) {
@@ -38,6 +54,7 @@ function auth<TD extends P, TS extends P, TDR extends P>(
   });
 }
 
+// Plugin: adds response timing header via lifecycle hooks
 function timing<TD extends P, TS extends P, TDR extends P>(
   app: Kage<TD, TS, TDR>,
 ) {
@@ -60,6 +77,7 @@ function timing<TD extends P, TS extends P, TDR extends P>(
     });
 }
 
+// Compose plugins with .use()
 const app = new Kage()
   .use(version)
   .use(counter({ logEvery: 5 }))
@@ -72,6 +90,7 @@ const app = new Kage()
       endpoints: ["GET /", "GET /me", "GET /admin", "GET /api/info"],
     }))
   .get("/me", (c) => c.json({ authenticated: c.isAuthenticated, user: c.user }))
+  // Groups can also use plugins (scoped to the group)
   .group("/admin", (group) =>
     group
       .use((g) =>
@@ -91,6 +110,6 @@ const app = new Kage()
 await app.listen({
   port: 8000,
   onListen: ({ hostname, port }) => {
-    console.log(`Plugins: http://${hostname}:${port}`);
+    console.log(`Plugins example: http://${hostname}:${port}`);
   },
 });

@@ -55,8 +55,10 @@ export type {
 } from "~/errors/mod.ts";
 
 export type {
+  ContextState,
   DeriveContext,
   DeriveFn,
+  ExtendedContext,
   GroupConfig,
   OnAfterHandleHook,
   OnBeforeHandleHook,
@@ -65,7 +67,6 @@ export type {
   OnResponseHook,
   P,
   PluginFn,
-  PluginSystemState,
   RequestContext,
   ScopeOptions,
 } from "~/plugins/mod.ts";
