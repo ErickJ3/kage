@@ -1,6 +1,6 @@
 {
   "name": "@kage/workers",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
