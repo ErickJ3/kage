@@ -517,6 +517,24 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
+  get<
+    TPath extends string,
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
+    path: TPath,
+    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    handler: KageSchemaHandler<
+      TDecorators,
+      TState,
+      TDerived,
+      InferSchema<TParamsSchema, Record<string, string>>,
+      InferSchema<TQuerySchema, Record<string, unknown>>,
+      InferSchema<TBodySchema, unknown>
+    >,
+  ): this;
   get<TPath extends string>(
     path: TPath,
     config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
@@ -529,8 +547,10 @@ export class Kage<
     path: string,
     // deno-lint-ignore no-explicit-any
     handlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): this {
-    this.addRoute("GET", path, handlerOrConfig);
+    this.addRoute("GET", path, handlerOrConfig, handler);
     return this;
   }
 
@@ -552,6 +572,24 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
+  post<
+    TPath extends string,
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
+    path: TPath,
+    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    handler: KageSchemaHandler<
+      TDecorators,
+      TState,
+      TDerived,
+      InferSchema<TParamsSchema, Record<string, string>>,
+      InferSchema<TQuerySchema, Record<string, unknown>>,
+      InferSchema<TBodySchema, unknown>
+    >,
+  ): this;
   post<TPath extends string>(
     path: TPath,
     config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
@@ -564,8 +602,10 @@ export class Kage<
     path: string,
     // deno-lint-ignore no-explicit-any
     handlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): this {
-    this.addRoute("POST", path, handlerOrConfig);
+    this.addRoute("POST", path, handlerOrConfig, handler);
     return this;
   }
 
@@ -587,6 +627,24 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
+  put<
+    TPath extends string,
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
+    path: TPath,
+    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    handler: KageSchemaHandler<
+      TDecorators,
+      TState,
+      TDerived,
+      InferSchema<TParamsSchema, Record<string, string>>,
+      InferSchema<TQuerySchema, Record<string, unknown>>,
+      InferSchema<TBodySchema, unknown>
+    >,
+  ): this;
   put<TPath extends string>(
     path: TPath,
     config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
@@ -599,8 +657,10 @@ export class Kage<
     path: string,
     // deno-lint-ignore no-explicit-any
     handlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): this {
-    this.addRoute("PUT", path, handlerOrConfig);
+    this.addRoute("PUT", path, handlerOrConfig, handler);
     return this;
   }
 
@@ -622,6 +682,24 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
+  patch<
+    TPath extends string,
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
+    path: TPath,
+    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    handler: KageSchemaHandler<
+      TDecorators,
+      TState,
+      TDerived,
+      InferSchema<TParamsSchema, Record<string, string>>,
+      InferSchema<TQuerySchema, Record<string, unknown>>,
+      InferSchema<TBodySchema, unknown>
+    >,
+  ): this;
   patch<TPath extends string>(
     path: TPath,
     config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
@@ -634,8 +712,10 @@ export class Kage<
     path: string,
     // deno-lint-ignore no-explicit-any
     handlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): this {
-    this.addRoute("PATCH", path, handlerOrConfig);
+    this.addRoute("PATCH", path, handlerOrConfig, handler);
     return this;
   }
 
@@ -657,6 +737,24 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
+  delete<
+    TPath extends string,
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
+    path: TPath,
+    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    handler: KageSchemaHandler<
+      TDecorators,
+      TState,
+      TDerived,
+      InferSchema<TParamsSchema, Record<string, string>>,
+      InferSchema<TQuerySchema, Record<string, unknown>>,
+      InferSchema<TBodySchema, unknown>
+    >,
+  ): this;
   delete<TPath extends string>(
     path: TPath,
     config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
@@ -669,8 +767,10 @@ export class Kage<
     path: string,
     // deno-lint-ignore no-explicit-any
     handlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): this {
-    this.addRoute("DELETE", path, handlerOrConfig);
+    this.addRoute("DELETE", path, handlerOrConfig, handler);
     return this;
   }
 
@@ -692,6 +792,24 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
+  head<
+    TPath extends string,
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
+    path: TPath,
+    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    handler: KageSchemaHandler<
+      TDecorators,
+      TState,
+      TDerived,
+      InferSchema<TParamsSchema, Record<string, string>>,
+      InferSchema<TQuerySchema, Record<string, unknown>>,
+      InferSchema<TBodySchema, unknown>
+    >,
+  ): this;
   head<TPath extends string>(
     path: TPath,
     config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
@@ -704,8 +822,10 @@ export class Kage<
     path: string,
     // deno-lint-ignore no-explicit-any
     handlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): this {
-    this.addRoute("HEAD", path, handlerOrConfig);
+    this.addRoute("HEAD", path, handlerOrConfig, handler);
     return this;
   }
 
@@ -727,6 +847,24 @@ export class Kage<
       TResponseSchema
     >,
   ): this;
+  options<
+    TPath extends string,
+    TBodySchema extends TSchema | undefined = undefined,
+    TQuerySchema extends TSchema | undefined = undefined,
+    TParamsSchema extends TSchema | undefined = undefined,
+    TResponseSchema extends TSchema | undefined = undefined,
+  >(
+    path: TPath,
+    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    handler: KageSchemaHandler<
+      TDecorators,
+      TState,
+      TDerived,
+      InferSchema<TParamsSchema, Record<string, string>>,
+      InferSchema<TQuerySchema, Record<string, unknown>>,
+      InferSchema<TBodySchema, unknown>
+    >,
+  ): this;
   options<TPath extends string>(
     path: TPath,
     config: KageRouteConfig<TDecorators, TState, TDerived, PathParams<TPath>>,
@@ -739,8 +877,10 @@ export class Kage<
     path: string,
     // deno-lint-ignore no-explicit-any
     handlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): this {
-    this.addRoute("OPTIONS", path, handlerOrConfig);
+    this.addRoute("OPTIONS", path, handlerOrConfig, handler);
     return this;
   }
 
@@ -748,20 +888,22 @@ export class Kage<
     method: HttpMethod,
     path: string,
     // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
+    schemasOrHandlerOrConfig: any,
+    // deno-lint-ignore no-explicit-any
+    handler?: any,
   ): void {
     const fullPath = this.resolvePath(path);
 
-    if (this.isSchemaConfig(handlerOrConfig)) {
+    // New API: app.post("/path", { body: t.Object(...) }, (ctx) => ...)
+    if (handler !== undefined && typeof handler === "function") {
       const wrappedHandler = wrapTypedHandler(
-        handlerOrConfig.handler as (ctx: unknown) => unknown,
-        handlerOrConfig.schemas,
+        handler as (ctx: unknown) => unknown,
+        schemasOrHandlerOrConfig,
       );
       const pluginWrappedHandler = this.wrapWithPlugins(
         wrappedHandler as Handler,
       );
       this.router.add(method, fullPath, pluginWrappedHandler);
-      // Store raw route for mounting
       this.rawRoutes.push({
         method,
         path: fullPath,
@@ -771,17 +913,36 @@ export class Kage<
       return;
     }
 
-    const handler = typeof handlerOrConfig === "function"
-      ? handlerOrConfig
-      : handlerOrConfig.handler;
+    // Old API: app.post("/path", { schemas: {...}, handler: (ctx) => ... })
+    if (this.isSchemaConfig(schemasOrHandlerOrConfig)) {
+      const wrappedHandler = wrapTypedHandler(
+        schemasOrHandlerOrConfig.handler as (ctx: unknown) => unknown,
+        schemasOrHandlerOrConfig.schemas,
+      );
+      const pluginWrappedHandler = this.wrapWithPlugins(
+        wrappedHandler as Handler,
+      );
+      this.router.add(method, fullPath, pluginWrappedHandler);
+      this.rawRoutes.push({
+        method,
+        path: fullPath,
+        handler: wrappedHandler as Handler,
+        hasSchema: true,
+      });
+      return;
+    }
 
-    const pluginWrappedHandler = this.wrapWithPlugins(handler as Handler);
+    // Simple handler: app.post("/path", (ctx) => ...) or { handler: (ctx) => ... }
+    const routeHandler = typeof schemasOrHandlerOrConfig === "function"
+      ? schemasOrHandlerOrConfig
+      : schemasOrHandlerOrConfig.handler;
+
+    const pluginWrappedHandler = this.wrapWithPlugins(routeHandler as Handler);
     this.router.add(method, fullPath, pluginWrappedHandler);
-    // Store raw route for mounting
     this.rawRoutes.push({
       method,
       path: fullPath,
-      handler: handler as Handler,
+      handler: routeHandler as Handler,
       hasSchema: false,
     });
   }
