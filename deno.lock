@@ -114,7 +114,7 @@
       },
       "packages/core": {
         "dependencies": [
-          "jsr:@kage/router@~0.1.10",
+          "jsr:@kage/router@~0.1.11",
           "jsr:@std/assert@1",
           "jsr:@std/testing@1",
           "npm:@sinclair/typebox@~0.34.33"
@@ -128,7 +128,7 @@
       },
       "packages/schema": {
         "dependencies": [
-          "jsr:@kage/core@~0.1.10",
+          "jsr:@kage/core@~0.1.11",
           "jsr:@std/assert@1",
           "jsr:@std/testing@1",
           "npm:@sinclair/typebox@~0.34.33"
