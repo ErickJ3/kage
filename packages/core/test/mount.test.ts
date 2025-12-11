@@ -153,6 +153,62 @@ Deno.test("mount()", async (t) => {
     assertEquals((await response.json()).id, "42");
   });
 
+  await t.step("should mount a generic request handler", async () => {
+    const genericHandler = (request: Request): Response => {
+      const url = new URL(request.url);
+      return Response.json({
+        path: url.pathname,
+        method: request.method,
+      });
+    };
+
+    const app = new Kage()
+      .get("/", () => ({ route: "home" }))
+      .mount("/api/auth", genericHandler);
+
+    const authResponse = await app.fetch(
+      new Request("http://localhost/api/auth"),
+    );
+    const authData = await authResponse.json();
+    assertEquals(authData.path, "/api/auth");
+    assertEquals(authData.method, "GET");
+
+    const loginResponse = await app.fetch(
+      new Request("http://localhost/api/auth/login", { method: "POST" }),
+    );
+    const loginData = await loginResponse.json();
+    assertEquals(loginData.path, "/api/auth/login");
+    assertEquals(loginData.method, "POST");
+
+    const callbackResponse = await app.fetch(
+      new Request("http://localhost/api/auth/callback/google"),
+    );
+    const callbackData = await callbackResponse.json();
+    assertEquals(callbackData.path, "/api/auth/callback/google");
+
+    const homeResponse = await app.fetch(
+      new Request("http://localhost/"),
+    );
+    assertEquals((await homeResponse.json()).route, "home");
+  });
+
+  await t.step("should mount async generic handler", async () => {
+    const asyncHandler = async (request: Request): Promise<Response> => {
+      await new Promise((r) => setTimeout(r, 1));
+      const url = new URL(request.url);
+      return Response.json({ async: true, path: url.pathname });
+    };
+
+    const app = new Kage().mount("/async", asyncHandler);
+
+    const response = await app.fetch(
+      new Request("http://localhost/async/test"),
+    );
+    const data = await response.json();
+    assertEquals(data.async, true);
+    assertEquals(data.path, "/async/test");
+  });
+
   await t.step("should apply parent hooks to mounted routes", async () => {
     const calls: string[] = [];
 
