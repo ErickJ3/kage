@@ -4,7 +4,7 @@
  * Run with: deno run --allow-net bench/cross_framework/hono_bench.ts
  */
 
-import { Hono } from "hono";
+import { Hono } from "npm:hono@^4.10.7";
 
 const PORT = 3000;
 const app = new Hono();
