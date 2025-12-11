@@ -525,7 +525,12 @@ export class Kage<
     TResponseSchema extends TSchema | undefined = undefined,
   >(
     path: TPath,
-    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    schemas: KageSchemas<
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
+    >,
     handler: KageSchemaHandler<
       TDecorators,
       TState,
@@ -580,7 +585,12 @@ export class Kage<
     TResponseSchema extends TSchema | undefined = undefined,
   >(
     path: TPath,
-    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    schemas: KageSchemas<
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
+    >,
     handler: KageSchemaHandler<
       TDecorators,
       TState,
@@ -635,7 +645,12 @@ export class Kage<
     TResponseSchema extends TSchema | undefined = undefined,
   >(
     path: TPath,
-    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    schemas: KageSchemas<
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
+    >,
     handler: KageSchemaHandler<
       TDecorators,
       TState,
@@ -690,7 +705,12 @@ export class Kage<
     TResponseSchema extends TSchema | undefined = undefined,
   >(
     path: TPath,
-    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    schemas: KageSchemas<
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
+    >,
     handler: KageSchemaHandler<
       TDecorators,
       TState,
@@ -745,7 +765,12 @@ export class Kage<
     TResponseSchema extends TSchema | undefined = undefined,
   >(
     path: TPath,
-    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    schemas: KageSchemas<
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
+    >,
     handler: KageSchemaHandler<
       TDecorators,
       TState,
@@ -800,7 +825,12 @@ export class Kage<
     TResponseSchema extends TSchema | undefined = undefined,
   >(
     path: TPath,
-    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    schemas: KageSchemas<
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
+    >,
     handler: KageSchemaHandler<
       TDecorators,
       TState,
@@ -855,7 +885,12 @@ export class Kage<
     TResponseSchema extends TSchema | undefined = undefined,
   >(
     path: TPath,
-    schemas: KageSchemas<TBodySchema, TQuerySchema, TParamsSchema, TResponseSchema>,
+    schemas: KageSchemas<
+      TBodySchema,
+      TQuerySchema,
+      TParamsSchema,
+      TResponseSchema
+    >,
     handler: KageSchemaHandler<
       TDecorators,
       TState,
