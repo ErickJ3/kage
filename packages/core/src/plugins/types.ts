@@ -1,17 +1,22 @@
 /**
- * Type definitions for the Kage plugin system
+ * Type definitions for Kage context extensions.
  *
- * This module provides type-safe plugin composition with full type inference
- * for decorators, state, and derived values.
+ * This module provides types for extending the request context through:
+ * - Decorators: Immutable singleton values (via `.decorate()`)
+ * - State: Mutable global state (via `.state()`)
+ * - Derived: Per-request computed values (via `.derive()`)
+ *
+ * These are core APIs that plugins can use to extend functionality.
+ * Plugins are functions that receive a Kage instance and return a modified one.
  */
 
 import type { Context } from "~/context/context.ts";
 
 /**
- * Base context type with decorated values, state, and derived values.
- * Used internally for type composition.
+ * Extended context type with decorators, state, and derived values.
+ * This is the full context type available in route handlers.
  */
-export type PluginContext<
+export type ExtendedContext<
   TDecorators extends Record<string, unknown> = Record<string, never>,
   TState extends Record<string, unknown> = Record<string, never>,
   TDerived extends Record<string, unknown> = Record<string, never>,
@@ -121,9 +126,10 @@ export type OnAfterHandleHook<TCtx> = (
 ) => Response | Promise<Response>;
 
 /**
- * Internal storage for plugin system state.
+ * Internal storage for context extension state.
+ * Holds decorators, state, derive functions, and lifecycle hooks.
  */
-export interface PluginSystemState<
+export interface ContextState<
   TDecorators extends Record<string, unknown> = Record<string, never>,
   TState extends Record<string, unknown> = Record<string, never>,
 > {

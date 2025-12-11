@@ -14,13 +14,13 @@ import { Context, ContextPool } from "~/context/mod.ts";
 import { compose, type Middleware } from "~/middleware/mod.ts";
 import { wrapTypedHandler } from "~/routing/builder.ts";
 import type {
+  ContextState,
   DeriveFn,
   OnAfterHandleHook,
   OnBeforeHandleHook,
   OnErrorHook,
   OnRequestHook,
   OnResponseHook,
-  PluginSystemState,
 } from "~/plugins/types.ts";
 import type { PathParams } from "~/routing/types.ts";
 
@@ -199,7 +199,7 @@ export class Kage<
     | null = null;
   private contextPool: ContextPool;
 
-  private pluginState: PluginSystemState<TDecorators, TState>;
+  private contextState: ContextState<TDecorators, TState>;
   private basePath: string;
   private rawRoutes: RawRoute[] = [];
 
@@ -210,7 +210,7 @@ export class Kage<
     this.contextPool = new ContextPool(256);
     this.contextPool.preallocate(64);
 
-    this.pluginState = {
+    this.contextState = {
       decorators: {} as TDecorators,
       state: {} as TState,
       deriveFns: [],
@@ -242,11 +242,11 @@ export class Kage<
     value: V,
   ): Kage<TDecorators & { [P in K]: V }, TState, TDerived> {
     const newDecorators = {
-      ...this.pluginState.decorators,
+      ...this.contextState.decorators,
       [key]: value,
     } as TDecorators & { [P in K]: V };
 
-    this.pluginState.decorators = newDecorators as TDecorators;
+    this.contextState.decorators = newDecorators as TDecorators;
 
     return this as unknown as Kage<
       TDecorators & { [P in K]: V },
@@ -274,11 +274,11 @@ export class Kage<
     initialValue: V,
   ): Kage<TDecorators, TState & { [P in K]: V }, TDerived> {
     const newState = {
-      ...this.pluginState.state,
+      ...this.contextState.state,
       [key]: initialValue,
     } as TState & { [P in K]: V };
 
-    this.pluginState.state = newState as TState;
+    this.contextState.state = newState as TState;
 
     return this as unknown as Kage<
       TDecorators,
@@ -306,7 +306,7 @@ export class Kage<
   derive<TNew extends Record<string, unknown>>(
     fn: DeriveFn<TNew>,
   ): Kage<TDecorators, TState, TDerived & TNew> {
-    this.pluginState.deriveFns.push(fn as DeriveFn<Record<string, unknown>>);
+    this.contextState.deriveFns.push(fn as DeriveFn<Record<string, unknown>>);
 
     return this as unknown as Kage<TDecorators, TState, TDerived & TNew>;
   }
@@ -415,7 +415,7 @@ export class Kage<
     const group = new KageGroup<TDecorators, TState, TDerived>(
       this,
       this.normalizePath(this.basePath, prefix),
-      { ...this.pluginState },
+      { ...this.contextState },
     );
 
     const configuredGroup = configure(group);
@@ -429,7 +429,7 @@ export class Kage<
    * Can return a Response to short-circuit, or modify the Request.
    */
   onRequest(hook: OnRequestHook): this {
-    this.pluginState.onRequestHooks.push(hook);
+    this.contextState.onRequestHooks.push(hook);
     return this;
   }
 
@@ -438,7 +438,7 @@ export class Kage<
    * Can transform the response.
    */
   onResponse(hook: OnResponseHook): this {
-    this.pluginState.onResponseHooks.push(hook);
+    this.contextState.onResponseHooks.push(hook);
     return this;
   }
 
@@ -447,7 +447,7 @@ export class Kage<
    * Return a Response to handle the error, or null to pass to next handler.
    */
   onError(hook: OnErrorHook): this {
-    this.pluginState.onErrorHooks.push(hook);
+    this.contextState.onErrorHooks.push(hook);
     return this;
   }
 
@@ -460,7 +460,7 @@ export class Kage<
       Context & TDecorators & { store: TState } & TDerived
     >,
   ): this {
-    this.pluginState.onBeforeHandleHooks.push(
+    this.contextState.onBeforeHandleHooks.push(
       hook as OnBeforeHandleHook<unknown>,
     );
     return this;
@@ -475,7 +475,7 @@ export class Kage<
       Context & TDecorators & { store: TState } & TDerived
     >,
   ): this {
-    this.pluginState.onAfterHandleHooks.push(
+    this.contextState.onAfterHandleHooks.push(
       hook as OnAfterHandleHook<unknown>,
     );
     return this;
@@ -975,12 +975,12 @@ export class Kage<
   }
 
   private wrapWithPlugins(handler: Handler): Handler {
-    const deriveFns = this.pluginState.deriveFns;
-    const decoratorKeys = Object.keys(this.pluginState.decorators);
-    const decorators = this.pluginState.decorators;
-    const state = this.pluginState.state;
-    const beforeHandleHooks = this.pluginState.onBeforeHandleHooks;
-    const afterHandleHooks = this.pluginState.onAfterHandleHooks;
+    const deriveFns = this.contextState.deriveFns;
+    const decoratorKeys = Object.keys(this.contextState.decorators);
+    const decorators = this.contextState.decorators;
+    const state = this.contextState.state;
+    const beforeHandleHooks = this.contextState.onBeforeHandleHooks;
+    const afterHandleHooks = this.contextState.onAfterHandleHooks;
 
     const hasDerive = deriveFns.length > 0;
     const hasDecorators = decoratorKeys.length > 0;
@@ -1132,7 +1132,7 @@ export class Kage<
     };
 
     // Execute onRequest hooks
-    for (const hook of this.pluginState.onRequestHooks) {
+    for (const hook of this.contextState.onRequestHooks) {
       const result = await hook(req, requestContext);
       if (result instanceof Response) {
         return result;
@@ -1172,7 +1172,7 @@ export class Kage<
 
       // Execute onResponse hooks
       let finalResponse = response;
-      for (const hook of this.pluginState.onResponseHooks) {
+      for (const hook of this.contextState.onResponseHooks) {
         finalResponse = await hook(finalResponse, req, requestContext);
       }
 
@@ -1192,7 +1192,7 @@ export class Kage<
     },
   ): Promise<Response> {
     // Execute onError hooks
-    for (const hook of this.pluginState.onErrorHooks) {
+    for (const hook of this.contextState.onErrorHooks) {
       const result = await hook(error, req, requestContext);
       if (result !== null) {
         return result;
@@ -1421,9 +1421,9 @@ export class Kage<
     this.router.add(method, path, handler);
   }
 
-  /** @internal Get plugin state for groups */
-  _getPluginState(): PluginSystemState<TDecorators, TState> {
-    return this.pluginState;
+  /** @internal Get context state for groups */
+  _getContextState(): ContextState<TDecorators, TState> {
+    return this.contextState;
   }
 
   /** @internal Get raw routes for mounting */
@@ -1459,7 +1459,7 @@ class KageGroup<
   constructor(
     private parent: Kage<TDecorators, TState, TDerived>,
     private prefix: string,
-    private inheritedState: PluginSystemState<TDecorators, TState>,
+    private inheritedState: ContextState<TDecorators, TState>,
   ) {}
 
   decorate<K extends string, V>(
