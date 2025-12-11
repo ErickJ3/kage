@@ -1,8 +1,9 @@
 import { Kage, t } from "../packages/core/src/mod.ts";
 
 const app = new Kage()
-  .post("/users", {
-    schemas: {
+  .post(
+    "/users",
+    {
       body: t.Object({
         name: t.String({ minLength: 1, maxLength: 100 }),
         email: t.String({ format: "email" }),
@@ -10,48 +11,50 @@ const app = new Kage()
         tags: t.Optional(t.Array(t.String())),
       }),
     },
-    handler: (ctx) =>
-      ctx.json(
+    (c) =>
+      c.json(
         {
           created: true,
           user: {
-            ...ctx.body,
+            ...c.body,
             id: crypto.randomUUID(),
             createdAt: new Date().toISOString(),
           },
         },
         201,
       ),
-  })
-  .get("/search", {
-    schemas: {
+  )
+  .get(
+    "/search",
+    {
       query: t.Object({
         q: t.String({ minLength: 1 }),
         limit: t.Optional(t.String({ pattern: "^\\d+$" })),
         offset: t.Optional(t.String({ pattern: "^\\d+$" })),
       }),
     },
-    handler: (ctx) =>
-      ctx.json({
-        query: ctx.query.q,
-        limit: ctx.query.limit ? parseInt(ctx.query.limit) : 10,
-        offset: ctx.query.offset ? parseInt(ctx.query.offset) : 0,
+    (c) =>
+      c.json({
+        query: c.query.q,
+        limit: c.query.limit ? parseInt(c.query.limit) : 10,
+        offset: c.query.offset ? parseInt(c.query.offset) : 0,
         results: [],
       }),
-  })
-  .get("/users/:id", {
-    schemas: {
+  )
+  .get(
+    "/users/:id",
+    {
       params: t.Object({
         id: t.String({ format: "uuid" }),
       }),
     },
-    handler: (ctx) =>
-      ctx.json({
-        id: ctx.params.id,
+    (c) =>
+      c.json({
+        id: c.params.id,
         name: "User",
         email: "user@example.com",
       }),
-  });
+  );
 
 await app.listen({
   port: 8000,
