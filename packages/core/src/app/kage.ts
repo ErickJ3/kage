@@ -356,17 +356,8 @@ export class Kage<
     ) => Kage<TOutDecorators, TOutState, TOutDerived>,
   ): Kage<TOutDecorators, TOutState, TOutDerived>;
 
-  use<
-    TOutDecorators extends Record<string, unknown>,
-    TOutState extends Record<string, unknown>,
-    TOutDerived extends Record<string, unknown>,
-  >(
-    pluginOrMiddleware:
-      | ((
-        app: Kage<TDecorators, TState, TDerived>,
-      ) => Kage<TOutDecorators, TOutState, TOutDerived>)
-      | Middleware,
-  ): this | Kage<TOutDecorators, TOutState, TOutDerived> {
+  // deno-lint-ignore no-explicit-any
+  use(pluginOrMiddleware: any): any {
     // Check if it's a middleware (takes ctx and next - 2 parameters)
     if (
       typeof pluginOrMiddleware === "function" &&
@@ -382,10 +373,7 @@ export class Kage<
       typeof pluginOrMiddleware === "function" &&
       pluginOrMiddleware.length === 1
     ) {
-      const plugin = pluginOrMiddleware as (
-        app: Kage<TDecorators, TState, TDerived>,
-      ) => Kage<TOutDecorators, TOutState, TOutDerived>;
-      return plugin(this);
+      return pluginOrMiddleware(this);
     }
 
     // Fallback: treat as middleware
