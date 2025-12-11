@@ -20,7 +20,6 @@ import type {
   OnErrorHook,
   OnRequestHook,
   OnResponseHook,
-  PluginFn,
   PluginSystemState,
 } from "~/plugins/types.ts";
 import type { PathParams } from "~/routing/types.ts";
@@ -347,25 +346,13 @@ export class Kage<
    *   .get("/me", (ctx) => ctx.json(ctx.user));
    * ```
    */
-  use<
-    TResult extends Kage<
-      Record<string, unknown>,
-      Record<string, unknown>,
-      Record<string, unknown>
-    >,
-  >(
-    plugin: PluginFn<this, TResult>,
-  ): TResult;
+  use<TPlugin extends (app: this) => Kage<any, any, any>>(
+    plugin: TPlugin,
+  ): ReturnType<TPlugin>;
 
-  use<
-    TResult extends Kage<
-      Record<string, unknown>,
-      Record<string, unknown>,
-      Record<string, unknown>
-    >,
-  >(
-    pluginOrMiddleware: PluginFn<this, TResult> | Middleware,
-  ): this | TResult {
+  use<TPlugin extends (app: this) => Kage<any, any, any>>(
+    pluginOrMiddleware: TPlugin | Middleware,
+  ): this | ReturnType<TPlugin> {
     // Check if it's a middleware (takes ctx and next - 2 parameters)
     if (
       typeof pluginOrMiddleware === "function" &&
@@ -381,7 +368,7 @@ export class Kage<
       typeof pluginOrMiddleware === "function" &&
       pluginOrMiddleware.length === 1
     ) {
-      return (pluginOrMiddleware as PluginFn<this, TResult>)(this);
+      return (pluginOrMiddleware as TPlugin)(this) as ReturnType<TPlugin>;
     }
 
     // Fallback: treat as middleware
@@ -1525,16 +1512,10 @@ class KageGroup<
    * );
    * ```
    */
-  use<
-    TResult extends KageGroup<
-      Record<string, unknown>,
-      Record<string, unknown>,
-      Record<string, unknown>
-    >,
-  >(
-    plugin: (group: this) => TResult,
-  ): TResult {
-    return plugin(this);
+  use<TPlugin extends (group: this) => KageGroup<any, any, any>>(
+    plugin: TPlugin,
+  ): ReturnType<TPlugin> {
+    return plugin(this) as ReturnType<TPlugin>;
   }
 
   get<TPath extends string>(
