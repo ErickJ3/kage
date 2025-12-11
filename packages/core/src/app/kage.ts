@@ -333,7 +333,7 @@ export class Kage<
    *
    * @example
    * ```typescript
-   * function authPlugin<T extends Kage>(app: T) {
+   * function authPlugin<TD extends P, TS extends P, TDR extends P>(app: Kage<TD, TS, TDR>) {
    *   return app
    *     .decorate("jwt", new JWTService())
    *     .derive(({ headers }) => ({
@@ -346,13 +346,27 @@ export class Kage<
    *   .get("/me", (ctx) => ctx.json(ctx.user));
    * ```
    */
-  use<TPlugin extends (app: this) => Kage<any, any, any>>(
-    plugin: TPlugin,
-  ): ReturnType<TPlugin>;
+  use<
+    TOutDecorators extends Record<string, unknown>,
+    TOutState extends Record<string, unknown>,
+    TOutDerived extends Record<string, unknown>,
+  >(
+    plugin: (
+      app: Kage<TDecorators, TState, TDerived>,
+    ) => Kage<TOutDecorators, TOutState, TOutDerived>,
+  ): Kage<TOutDecorators, TOutState, TOutDerived>;
 
-  use<TPlugin extends (app: this) => Kage<any, any, any>>(
-    pluginOrMiddleware: TPlugin | Middleware,
-  ): this | ReturnType<TPlugin> {
+  use<
+    TOutDecorators extends Record<string, unknown>,
+    TOutState extends Record<string, unknown>,
+    TOutDerived extends Record<string, unknown>,
+  >(
+    pluginOrMiddleware:
+      | ((
+        app: Kage<TDecorators, TState, TDerived>,
+      ) => Kage<TOutDecorators, TOutState, TOutDerived>)
+      | Middleware,
+  ): this | Kage<TOutDecorators, TOutState, TOutDerived> {
     // Check if it's a middleware (takes ctx and next - 2 parameters)
     if (
       typeof pluginOrMiddleware === "function" &&
@@ -368,7 +382,10 @@ export class Kage<
       typeof pluginOrMiddleware === "function" &&
       pluginOrMiddleware.length === 1
     ) {
-      return (pluginOrMiddleware as TPlugin)(this) as ReturnType<TPlugin>;
+      const plugin = pluginOrMiddleware as (
+        app: Kage<TDecorators, TState, TDerived>,
+      ) => Kage<TOutDecorators, TOutState, TOutDerived>;
+      return plugin(this);
     }
 
     // Fallback: treat as middleware
@@ -1512,10 +1529,16 @@ class KageGroup<
    * );
    * ```
    */
-  use<TPlugin extends (group: this) => KageGroup<any, any, any>>(
-    plugin: TPlugin,
-  ): ReturnType<TPlugin> {
-    return plugin(this) as ReturnType<TPlugin>;
+  use<
+    TOutDecorators extends Record<string, unknown>,
+    TOutState extends Record<string, unknown>,
+    TOutDerived extends Record<string, unknown>,
+  >(
+    plugin: (
+      group: KageGroup<TDecorators, TState, TDerived>,
+    ) => KageGroup<TOutDecorators, TOutState, TOutDerived>,
+  ): KageGroup<TOutDecorators, TOutState, TOutDerived> {
+    return plugin(this);
   }
 
   get<TPath extends string>(
