@@ -1358,18 +1358,46 @@ export class Kage<
    * // Routes:
    * // GET /auth/login
    * // POST /auth/logout
+   *
+   * // Mounting a generic handler
+   * const handler = (req: Request) => Promise<Response>
+   *
+   * const app = new Kage()
+   *   .mount("/api", handler);
+   *
+   * // All requests to /api/* will be handled by handler
    * ```
    */
   // deno-lint-ignore no-explicit-any
   mount(app: Kage<any, any, any>): this;
   // deno-lint-ignore no-explicit-any
   mount(prefix: string, app: Kage<any, any, any>): this;
+  /**
+   * Mount a generic request handler at a prefix.
+   * The handler receives the raw Request and should return a Response.
+   * All requests matching the prefix will be forwarded to the handler.
+   */
+  mount(
+    prefix: string,
+    handler: (request: Request) => Response | Promise<Response>,
+  ): this;
   mount(
     // deno-lint-ignore no-explicit-any
     prefixOrApp: string | Kage<any, any, any>,
     // deno-lint-ignore no-explicit-any
-    app?: Kage<any, any, any>,
+    appOrHandler?:
+      | Kage<any, any, any>
+      | ((request: Request) => Response | Promise<Response>),
   ): this {
+    // Handle generic handler mount: mount("/prefix", handler)
+    if (
+      typeof prefixOrApp === "string" &&
+      typeof appOrHandler === "function" &&
+      !(appOrHandler instanceof Kage)
+    ) {
+      return this.mountHandler(prefixOrApp, appOrHandler);
+    }
+
     let prefix: string;
     let mountedAppBasePath: string;
     let mountedApp: Kage<
@@ -1380,7 +1408,11 @@ export class Kage<
 
     if (typeof prefixOrApp === "string") {
       prefix = prefixOrApp;
-      mountedApp = app!;
+      mountedApp = appOrHandler as Kage<
+        Record<string, unknown>,
+        Record<string, unknown>,
+        Record<string, unknown>
+      >;
       mountedAppBasePath = mountedApp._getBasePath();
     } else {
       mountedApp = prefixOrApp;
@@ -1411,6 +1443,60 @@ export class Kage<
         handler: route.handler,
         hasSchema: route.hasSchema,
       });
+    }
+
+    return this;
+  }
+
+  /**
+   * Mount a generic request handler at a prefix using wildcard routing.
+   * @internal
+   */
+  private mountHandler(
+    prefix: string,
+    handler: (request: Request) => Response | Promise<Response>,
+  ): this {
+    const normalizedPrefix = this.normalizePath(this.basePath, prefix);
+    const wildcardPath = `${normalizedPrefix}/*`;
+
+    const wrappedHandler: Handler = (ctx: Context) => {
+      return handler(ctx.request);
+    };
+
+    const methods: HttpMethod[] = [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "HEAD",
+      "OPTIONS",
+    ];
+
+    for (const method of methods) {
+      this.router.add(method, wildcardPath, wrappedHandler);
+      this.rawRoutes.push({
+        method,
+        path: wildcardPath,
+        handler: wrappedHandler,
+        hasSchema: false,
+      });
+    }
+
+    // Also register the exact prefix path (without trailing wildcard)
+    // This handles requests to /api/auth exactly (not just /api/auth/*)
+    for (const method of methods) {
+      try {
+        this.router.add(method, normalizedPrefix, wrappedHandler);
+        this.rawRoutes.push({
+          method,
+          path: normalizedPrefix,
+          handler: wrappedHandler,
+          hasSchema: false,
+        });
+      } catch {
+        // ignore
+      }
     }
 
     return this;
