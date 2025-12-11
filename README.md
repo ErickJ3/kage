@@ -22,14 +22,11 @@ import { Kage, t } from "@kage/core";
 new Kage()
   .get("/", (c) => c.json({ message: "Hello, Kage!" }))
   .post("/users", {
-    schemas: {
-      body: t.Object({
-        name: t.String({ minLength: 1 }),
-        email: t.String({ format: "email" }),
-      }),
-    },
-    handler: (c) => c.json({ id: crypto.randomUUID(), ...c.body }, 201),
-  })
+    body: t.Object({
+      name: t.String({ minLength: 1 }),
+      email: t.String({ format: "email" }),
+    }),
+  }, (c) => c.json({ id: crypto.randomUUID(), ...c.body }, 201))
   .listen({ port: 8000 });
 ```
 
