@@ -1,5 +1,5 @@
 /**
- * Kage - Deno-native framework for secure, scalable multi-tenant APIs
+ * Kage - Deno-first framework. minimalist and powerful.
  *
  * @example
  * ```typescript

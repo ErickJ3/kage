@@ -1,6 +1,6 @@
 {
   "name": "@kage/core",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "license": "MIT",
   "exports": "./src/mod.ts",
   "imports": {
@@ -8,7 +8,7 @@
     "@std/assert": "jsr:@std/assert@^1.0.0",
     "@std/testing": "jsr:@std/testing@^1.0.0",
     "@sinclair/typebox": "npm:@sinclair/typebox@^0.34.33",
-    "@kage/router": "jsr:@kage/router@^0.1.13"
+    "@kage/router": "jsr:@kage/router@^0.1.14"
   },
   "publish": {
     "include": [
