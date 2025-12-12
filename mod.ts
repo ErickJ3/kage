@@ -16,4 +16,3 @@
  */
 
 export * from "@kage/core";
-export * from "@kage/router";

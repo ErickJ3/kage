@@ -1,38 +1,6 @@
 import type { Static, TSchema } from "@sinclair/typebox";
-import { FormatRegistry } from "@sinclair/typebox";
-import { Value } from "@sinclair/typebox/value";
 import { Context } from "~/context/mod.ts";
-
-// Register common string formats
-if (!FormatRegistry.Has("email")) {
-  FormatRegistry.Set("email", (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
-}
-if (!FormatRegistry.Has("uuid")) {
-  FormatRegistry.Set(
-    "uuid",
-    (v) =>
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
-  );
-}
-if (!FormatRegistry.Has("uri")) {
-  FormatRegistry.Set("uri", (v) => {
-    try {
-      new URL(v);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-}
-if (!FormatRegistry.Has("date-time")) {
-  FormatRegistry.Set("date-time", (v) => !isNaN(Date.parse(v)));
-}
-if (!FormatRegistry.Has("date")) {
-  FormatRegistry.Set("date", (v) => /^\d{4}-\d{2}-\d{2}$/.test(v));
-}
-if (!FormatRegistry.Has("time")) {
-  FormatRegistry.Set("time", (v) => /^\d{2}:\d{2}:\d{2}/.test(v));
-}
+import { validate } from "~/schema/validator.ts";
 import type {
   InferSchema,
   PathParams,
@@ -87,24 +55,6 @@ function createTypedContext<TParams, TQuery, TBody>(
   return typedCtx;
 }
 
-function validateSchema(
-  schema: TSchema,
-  data: unknown,
-): { success: true; data: unknown } | { success: false; errors: unknown[] } {
-  const errors = [...Value.Errors(schema, data)];
-  if (errors.length === 0) {
-    return { success: true, data: Value.Cast(schema, data) };
-  }
-  return {
-    success: false,
-    errors: errors.map((e) => ({
-      field: e.path.replace(/^\//, "").replace(/\//g, ".") || "(root)",
-      message: e.message,
-      code: e.type.toString(),
-    })),
-  };
-}
-
 export function createRoute<
   TPath extends string,
   TParamsSchema extends TSchema | undefined = undefined,
@@ -140,7 +90,7 @@ export function wrapTypedHandler(
   return async (ctx: Context) => {
     let validatedParams = ctx.params;
     if (schemas.params) {
-      const result = validateSchema(schemas.params, ctx.params);
+      const result = validate(schemas.params, ctx.params);
       if (!result.success) {
         return ctx.json(
           { error: "Validation Error", details: result.errors },
@@ -153,7 +103,7 @@ export function wrapTypedHandler(
     let validatedQuery: Record<string, unknown> = {};
     if (schemas.query) {
       const queryObj = Object.fromEntries(ctx.url.searchParams.entries());
-      const result = validateSchema(schemas.query, queryObj);
+      const result = validate(schemas.query, queryObj);
       if (!result.success) {
         return ctx.json(
           { error: "Validation Error", details: result.errors },
@@ -167,7 +117,7 @@ export function wrapTypedHandler(
     if (schemas.body) {
       try {
         const body = await ctx.request.json();
-        const result = validateSchema(schemas.body, body);
+        const result = validate(schemas.body, body);
         if (!result.success) {
           return ctx.json(
             { error: "Validation Error", details: result.errors },
@@ -198,7 +148,7 @@ export function wrapTypedHandler(
     )(typedCtx);
 
     if (schemas.response && !(response instanceof Response)) {
-      const result = validateSchema(schemas.response, response);
+      const result = validate(schemas.response, response);
       if (!result.success) {
         console.warn("Response validation failed:", result.errors);
       }

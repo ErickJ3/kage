@@ -1,34 +1,9 @@
-/**
- * Schema validation middleware for Kage.
- */
-
 import type { Static, TSchema } from "@sinclair/typebox";
-import type { Context, Middleware } from "@kage/core";
-import { validate, validationErrorResponse } from "~/validator.ts";
-import type { SchemaConfig } from "~/types.ts";
+import type { Context } from "~/context/context.ts";
+import type { Middleware } from "~/middleware/types.ts";
+import { validate, validationErrorResponse } from "~/schema/validator.ts";
+import type { SchemaConfig } from "~/schema/types.ts";
 
-/**
- * Create middleware that validates request data against schemas.
- *
- * @example
- * ```typescript
- * import { Kage, t } from "@kage/core";
- * import { validateSchema } from "@kage/schema";
- *
- * const userSchema = t.Object({
- *   name: t.String({ minLength: 1 }),
- *   email: t.String({ format: "email" }),
- * });
- *
- * app.post("/users",
- *   validateSchema({ body: userSchema }),
- *   async (ctx) => {
- *     const user = await ctx.bodyJson();
- *     return ctx.json({ created: true, user });
- *   }
- * );
- * ```
- */
 export function validateSchema(config: SchemaConfig): Middleware {
   return async (ctx: Context, next) => {
     if (config.query) {
@@ -70,7 +45,7 @@ export function validateSchema(config: SchemaConfig): Middleware {
       let body: unknown;
       try {
         body = await ctx.bodyJson();
-      } catch (_error) {
+      } catch {
         return new Response(
           JSON.stringify({
             error: "Invalid JSON in request body",
@@ -102,7 +77,7 @@ export function validateSchema(config: SchemaConfig): Middleware {
         if (!result.success) {
           console.warn("Response validation failed:", result.errors);
         }
-      } catch (_error) {
+      } catch {
         // Response is not JSON or failed to parse
       }
     }
