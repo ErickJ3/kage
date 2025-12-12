@@ -1,31 +1,37 @@
 import { type Static, type TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { FormatRegistry } from "@sinclair/typebox";
-import type { ValidationError, ValidationResult } from "~/types.ts";
+import type { ValidationError, ValidationResult } from "~/schema/types.ts";
 
-// Register common string formats
-FormatRegistry.Set(
-  "email",
-  (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
-);
-FormatRegistry.Set(
-  "uuid",
-  (value) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      value,
-    ),
-);
-FormatRegistry.Set("uri", (value) => {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-});
-FormatRegistry.Set("date-time", (value) => !isNaN(Date.parse(value)));
-FormatRegistry.Set("date", (value) => /^\d{4}-\d{2}-\d{2}$/.test(value));
-FormatRegistry.Set("time", (value) => /^\d{2}:\d{2}:\d{2}/.test(value));
+if (!FormatRegistry.Has("email")) {
+  FormatRegistry.Set("email", (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
+}
+if (!FormatRegistry.Has("uuid")) {
+  FormatRegistry.Set(
+    "uuid",
+    (v) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
+  );
+}
+if (!FormatRegistry.Has("uri")) {
+  FormatRegistry.Set("uri", (v) => {
+    try {
+      new URL(v);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+}
+if (!FormatRegistry.Has("date-time")) {
+  FormatRegistry.Set("date-time", (v) => !isNaN(Date.parse(v)));
+}
+if (!FormatRegistry.Has("date")) {
+  FormatRegistry.Set("date", (v) => /^\d{4}-\d{2}-\d{2}$/.test(v));
+}
+if (!FormatRegistry.Has("time")) {
+  FormatRegistry.Set("time", (v) => /^\d{2}:\d{2}:\d{2}/.test(v));
+}
 
 export function validate<T extends TSchema>(
   schema: T,

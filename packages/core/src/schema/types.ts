@@ -1,7 +1,3 @@
-/**
- * Type definitions for schema validation.
- */
-
 import type { Static, TSchema } from "@sinclair/typebox";
 
 export type Infer<T extends TSchema> = Static<T>;

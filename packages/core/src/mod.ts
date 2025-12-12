@@ -1,5 +1,5 @@
 /**
- * Kage Core - Web framework for Deno.
+ * Kage Core
  */
 
 import { Type } from "@sinclair/typebox";
@@ -69,7 +69,7 @@ export type {
   PluginFn,
   RequestContext,
   ScopeOptions,
-} from "~/plugins/mod.ts";
+} from "~/app/types.ts";
 
 export {
   createRoute,
@@ -87,3 +87,22 @@ export type {
   TypedRouteDefinition,
   TypedSchemaConfig,
 } from "~/routing/mod.ts";
+
+export { Router } from "~/router/mod.ts";
+export type { Handler, HttpMethod, Match } from "~/router/mod.ts";
+
+export {
+  getValidatedBody,
+  getValidatedParams,
+  getValidatedQuery,
+  validate,
+  validateOrThrow,
+  validateSchema,
+  validationErrorResponse,
+} from "~/schema/mod.ts";
+export type {
+  Infer,
+  SchemaConfig,
+  ValidationError,
+  ValidationResult,
+} from "~/schema/mod.ts";

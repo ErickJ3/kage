@@ -1,7 +1,3 @@
-/**
- * Type definitions for the router module.
- */
-
 export type HttpMethod =
   | "GET"
   | "POST"

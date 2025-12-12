@@ -1,43 +1,89 @@
-/**
- * Core application type definitions.
- */
+import type { Context } from "~/context/context.ts";
 
-/**
- * Configuration options for Kage application.
- */
 export interface KageConfig {
-  /**
-   * Prefix for all routes in this app.
-   * @default "/"
-   *
-   * @example
-   * ```typescript
-   * const authRoutes = new Kage({ prefix: "/auth" })
-   *   .get("/login", handler)  // Accessible at /auth/login
-   *   .post("/logout", handler); // Accessible at /auth/logout
-   * ```
-   */
   prefix?: string;
 }
 
-/**
- * HTTP server listen options.
- */
 export interface ListenOptions {
-  /**
-   * Port to listen on.
-   * @default 8000
-   */
   port?: number;
-
-  /**
-   * Hostname to bind to.
-   * @default "0.0.0.0"
-   */
   hostname?: string;
-
-  /**
-   * Callback invoked when server starts listening.
-   */
   onListen?: (params: { hostname: string; port: number }) => void;
 }
+
+export type ExtendedContext<
+  TDecorators extends Record<string, unknown> = Record<string, never>,
+  TState extends Record<string, unknown> = Record<string, never>,
+  TDerived extends Record<string, unknown> = Record<string, never>,
+> = Context & TDecorators & { store: TState } & TDerived;
+
+export interface DeriveContext {
+  readonly request: Request;
+  readonly headers: Headers;
+  readonly method: string;
+  readonly path: string;
+  readonly url: URL;
+  readonly params: Record<string, string>;
+  readonly query: URLSearchParams;
+}
+
+export type DeriveFn<TDerived extends Record<string, unknown>> = (
+  ctx: DeriveContext,
+) => TDerived | Promise<TDerived>;
+
+export type PluginFn<TApp, TResult> = (app: TApp) => TResult;
+
+export interface RequestContext {
+  set<T>(key: string, value: T): void;
+  get<T = unknown>(key: string): T | undefined;
+  has(key: string): boolean;
+}
+
+export type OnRequestHook = (
+  request: Request,
+  ctx: RequestContext,
+) => Request | Response | null | Promise<Request | Response | null>;
+
+export type OnResponseHook = (
+  response: Response,
+  request: Request,
+  ctx: RequestContext,
+) => Response | Promise<Response>;
+
+export type OnErrorHook = (
+  error: unknown,
+  request: Request,
+  ctx: RequestContext,
+) => Response | null | Promise<Response | null>;
+
+export type OnBeforeHandleHook<TCtx> = (
+  ctx: TCtx,
+) => Response | void | Promise<Response | void>;
+
+export type OnAfterHandleHook<TCtx> = (
+  ctx: TCtx,
+  response: Response,
+) => Response | Promise<Response>;
+
+export interface ContextState<
+  TDecorators extends Record<string, unknown> = Record<string, never>,
+  TState extends Record<string, unknown> = Record<string, never>,
+> {
+  decorators: TDecorators;
+  state: TState;
+  deriveFns: Array<DeriveFn<Record<string, unknown>>>;
+  onRequestHooks: OnRequestHook[];
+  onResponseHooks: OnResponseHook[];
+  onErrorHooks: OnErrorHook[];
+  onBeforeHandleHooks: Array<OnBeforeHandleHook<unknown>>;
+  onAfterHandleHooks: Array<OnAfterHandleHook<unknown>>;
+}
+
+export interface ScopeOptions {
+  scoped?: boolean;
+}
+
+export interface GroupConfig {
+  prefix: string;
+}
+
+export type P = Record<string, unknown>;

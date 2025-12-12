@@ -3,13 +3,10 @@
   "version": "0.1.0",
   "exports": "./mod.ts",
   "imports": {
-    "@kage/core": "./packages/core/src/mod.ts",
-    "@kage/router": "./packages/router/src/mod.ts"
+    "@kage/core": "./packages/core/src/mod.ts"
   },
   "workspace": [
     "./packages/core",
-    "./packages/router",
-    "./packages/schema",
     "./packages/workers",
     "./bench"
   ],

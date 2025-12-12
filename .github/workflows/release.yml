@@ -21,18 +21,6 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Publish @kage/router
-        run: deno publish --allow-dirty
-        working-directory: packages/router
-
       - name: Publish @kage/core
         run: deno publish --allow-dirty
         working-directory: packages/core
-
-      - name: Publish @kage/schema
-        run: deno publish --allow-dirty
-        working-directory: packages/schema
-
-      - name: Publish @kage/workers
-        run: deno publish --allow-dirty
-        working-directory: packages/workers

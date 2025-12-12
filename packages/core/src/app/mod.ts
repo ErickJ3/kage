@@ -1,7 +1,3 @@
-/**
- * App module - main Kage application.
- */
-
 export { Kage, KageGroup } from "~/app/kage.ts";
 export type {
   KageHandler,
