@@ -1,36 +1,35 @@
-import { Kage, t } from "../packages/core/src/mod.ts";
+import { Kage } from "../mod.ts";
+import { z } from "zod";
 
 const app = new Kage()
   .post(
     "/users",
     {
-      body: t.Object({
-        name: t.String({ minLength: 1, maxLength: 100 }),
-        email: t.String({ format: "email" }),
-        age: t.Optional(t.Integer({ minimum: 0, maximum: 150 })),
-        tags: t.Optional(t.Array(t.String())),
+      body: z.object({
+        name: z.string().min(1).max(100),
+        email: z.string().email(),
+        age: z.number().int().min(0).max(150).optional(),
+        tags: z.array(z.string()).optional(),
       }),
     },
-    (c) =>
-      c.json(
-        {
-          created: true,
-          user: {
-            ...c.body,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-          },
+    (c) => (
+      {
+        created: true,
+        user: {
+          ...c.body,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
         },
-        201,
-      ),
+      }
+    ),
   )
   .get(
     "/search",
     {
-      query: t.Object({
-        q: t.String({ minLength: 1 }),
-        limit: t.Optional(t.String({ pattern: "^\\d+$" })),
-        offset: t.Optional(t.String({ pattern: "^\\d+$" })),
+      query: z.object({
+        q: z.string().min(1),
+        limit: z.string().regex(/^\d+$/).optional(),
+        offset: z.string().regex(/^\d+$/).optional(),
       }),
     },
     (c) =>
@@ -44,8 +43,8 @@ const app = new Kage()
   .get(
     "/users/:id",
     {
-      params: t.Object({
-        id: t.String({ format: "uuid" }),
+      params: z.object({
+        id: z.string().uuid(),
       }),
     },
     (c) =>

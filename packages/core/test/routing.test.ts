@@ -1,6 +1,6 @@
 import { describe, it } from "@std/testing/bdd";
 import { assertEquals, assertExists } from "@std/assert";
-import { Type } from "@sinclair/typebox";
+import { z } from "zod";
 import { Kage } from "~/app/kage.ts";
 import { createRoute, route, RouteBuilder } from "~/routing/builder.ts";
 
@@ -21,8 +21,8 @@ describe("routing/builder", () => {
       const routeDef = createRoute({
         path: "/users/:id",
         schema: {
-          params: Type.Object({ id: Type.String() }),
-          query: Type.Object({ include: Type.Optional(Type.String()) }),
+          params: z.object({ id: z.string() }),
+          query: z.object({ include: z.string().optional() }),
         },
         handler: (ctx) => ctx.json({ id: ctx.params.id }),
       });
@@ -36,9 +36,9 @@ describe("routing/builder", () => {
       const routeDef = createRoute({
         path: "/users",
         schema: {
-          body: Type.Object({
-            name: Type.String(),
-            email: Type.String(),
+          body: z.object({
+            name: z.string(),
+            email: z.string(),
           }),
         },
         handler: (ctx) => ctx.json({ created: true }),
@@ -51,9 +51,9 @@ describe("routing/builder", () => {
       const routeDef = createRoute({
         path: "/users",
         schema: {
-          response: Type.Object({
-            id: Type.Number(),
-            name: Type.String(),
+          response: z.object({
+            id: z.number(),
+            name: z.string(),
           }),
         },
         handler: () => ({ id: 1, name: "test" }),
@@ -71,7 +71,7 @@ describe("routing/builder", () => {
 
     it("should chain params schema", () => {
       const routeDef = route("/users/:id")
-        .params(Type.Object({ id: Type.String() }))
+        .params(z.object({ id: z.string() }))
         .handler((ctx) => ctx.json({ id: ctx.params.id }));
 
       assertEquals(routeDef.path, "/users/:id");
@@ -80,7 +80,7 @@ describe("routing/builder", () => {
 
     it("should chain query schema", () => {
       const routeDef = route("/users")
-        .query(Type.Object({ page: Type.Number(), limit: Type.Number() }))
+        .query(z.object({ page: z.number(), limit: z.number() }))
         .handler((ctx) => ctx.json({ query: ctx.query }));
 
       assertExists(routeDef.schemas.query);
@@ -88,7 +88,7 @@ describe("routing/builder", () => {
 
     it("should chain body schema", () => {
       const routeDef = route("/users")
-        .body(Type.Object({ name: Type.String() }))
+        .body(z.object({ name: z.string() }))
         .handler((ctx) => ctx.json({ body: ctx.body }));
 
       assertExists(routeDef.schemas.body);
@@ -96,7 +96,7 @@ describe("routing/builder", () => {
 
     it("should chain response schema", () => {
       const routeDef = route("/users")
-        .response(Type.Object({ success: Type.Boolean() }))
+        .response(z.object({ success: z.boolean() }))
         .handler(() => ({ success: true }));
 
       assertExists(routeDef.schemas.response);
@@ -104,10 +104,10 @@ describe("routing/builder", () => {
 
     it("should chain all schemas", () => {
       const routeDef = route("/users/:id")
-        .params(Type.Object({ id: Type.String() }))
-        .query(Type.Object({ include: Type.Optional(Type.String()) }))
-        .body(Type.Object({ name: Type.String() }))
-        .response(Type.Object({ updated: Type.Boolean() }))
+        .params(z.object({ id: z.string() }))
+        .query(z.object({ include: z.string().optional() }))
+        .body(z.object({ name: z.string() }))
+        .response(z.object({ updated: z.boolean() }))
         .handler(() => ({ updated: true }));
 
       assertEquals(routeDef.path, "/users/:id");
@@ -124,7 +124,7 @@ describe("routing/builder", () => {
 
       app.get(
         "/users/:id",
-        { params: Type.Object({ id: Type.String({ minLength: 1 }) }) },
+        { params: z.object({ id: z.string().min(1) }) },
         (ctx) => ({ id: ctx.params.id }),
       );
 
@@ -140,7 +140,7 @@ describe("routing/builder", () => {
 
       app.get(
         "/users/:id",
-        { params: Type.Object({ id: Type.Number() }) },
+        { params: z.object({ id: z.coerce.number() }) },
         (ctx) => ({ id: ctx.params.id }),
       );
 
@@ -149,7 +149,7 @@ describe("routing/builder", () => {
       );
       assertEquals(res.status, 400);
       const body = await res.json();
-      assertEquals(body.error, "Validation Error");
+      assertEquals(body.error, "Validation failed");
     });
 
     it("should validate query schema", async () => {
@@ -157,7 +157,7 @@ describe("routing/builder", () => {
 
       app.get(
         "/users",
-        { query: Type.Object({ page: Type.String() }) },
+        { query: z.object({ page: z.string() }) },
         (ctx) => ({ page: ctx.query.page }),
       );
 
@@ -173,7 +173,7 @@ describe("routing/builder", () => {
 
       app.get(
         "/users",
-        { query: Type.Object({ page: Type.Number() }) },
+        { query: z.object({ page: z.coerce.number() }) },
         (ctx) => ({ page: ctx.query.page }),
       );
 
@@ -188,7 +188,7 @@ describe("routing/builder", () => {
 
       app.post(
         "/users",
-        { body: Type.Object({ name: Type.String() }) },
+        { body: z.object({ name: z.string() }) },
         (ctx) => ({ name: ctx.body.name }),
       );
 
@@ -208,7 +208,7 @@ describe("routing/builder", () => {
 
       app.post(
         "/users",
-        { body: Type.Object({ name: Type.String({ minLength: 1 }) }) },
+        { body: z.object({ name: z.string().min(1) }) },
         (ctx) => ({ name: ctx.body.name }),
       );
 
@@ -227,7 +227,7 @@ describe("routing/builder", () => {
 
       app.post(
         "/users",
-        { body: Type.Object({ name: Type.String() }) },
+        { body: z.object({ name: z.string() }) },
         (ctx) => ({ name: ctx.body.name }),
       );
 
@@ -243,7 +243,7 @@ describe("routing/builder", () => {
       assertEquals(body.error, "Invalid JSON body");
     });
 
-    it("should validate response schema in development", async () => {
+    it("should validate response schema in development (runtime)", async () => {
       const originalEnv = Deno.env.get("DENO_ENV");
       Deno.env.set("DENO_ENV", "development");
 
@@ -254,10 +254,11 @@ describe("routing/builder", () => {
       try {
         const app = new Kage();
 
+        // Runtime validation works for both direct objects and ctx.json() responses
         app.get(
           "/users",
-          { response: Type.Object({ id: Type.Number() }) },
-          () => ({ id: "not-a-number" }),
+          { response: z.object({ id: z.number() }) },
+          (ctx) => ctx.json({ id: "not-a-number" }),
         );
 
         await app.fetch(new Request("http://localhost/users"));
@@ -277,7 +278,7 @@ describe("routing/builder", () => {
 
       app.post("/users", {
         schemas: {
-          body: Type.Object({ name: Type.String() }),
+          body: z.object({ name: z.string() }),
         },
         handler: (ctx) => ({ received: ctx.body.name }),
       });

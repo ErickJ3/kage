@@ -1,6 +1,6 @@
 import { describe, it } from "@std/testing/bdd";
 import { assertEquals, assertExists } from "@std/assert";
-import { Type } from "@sinclair/typebox";
+import { z } from "zod";
 import { Kage } from "~/app/kage.ts";
 
 describe("Integration Tests", () => {
@@ -14,7 +14,7 @@ describe("Integration Tests", () => {
 
       app.post(
         "/users",
-        { body: Type.Object({ name: Type.String() }) },
+        { body: z.object({ name: z.string() }) },
         (ctx) => {
           const user = { id: nextId++, name: ctx.body.name };
           users.push(user);
@@ -30,7 +30,7 @@ describe("Integration Tests", () => {
 
       app.put(
         "/users/:id",
-        { body: Type.Object({ name: Type.String() }) },
+        { body: z.object({ name: z.string() }) },
         (ctx) => {
           const idx = users.findIndex((u) => u.id === parseInt(ctx.params.id));
           if (idx === -1) return ctx.notFound();
@@ -431,15 +431,15 @@ describe("Integration Tests", () => {
     it("should validate complex nested schemas", async () => {
       const app = new Kage();
 
-      const CreateOrderSchema = Type.Object({
-        customer: Type.Object({
-          name: Type.String(),
-          email: Type.String({ format: "email" }),
+      const CreateOrderSchema = z.object({
+        customer: z.object({
+          name: z.string(),
+          email: z.string().email(),
         }),
-        items: Type.Array(
-          Type.Object({
-            productId: Type.String(),
-            quantity: Type.Number({ minimum: 1 }),
+        items: z.array(
+          z.object({
+            productId: z.string(),
+            quantity: z.number().min(1),
           }),
         ),
       });

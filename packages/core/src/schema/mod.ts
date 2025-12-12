@@ -1,8 +1,25 @@
 export {
+  isStandardSchema,
   validate,
   validateOrThrow,
+} from "~/schema/standard.ts";
+
+export type {
+  Infer,
+  InferInput,
+  StandardSchema,
+  ValidationIssue,
+  ValidationResult,
+} from "~/schema/standard.ts";
+
+export {
+  createValidationErrorResponse,
+  formatIssues,
+  formatPath,
   validationErrorResponse,
-} from "~/schema/validator.ts";
+} from "~/schema/errors.ts";
+
+export type { FormattedValidationError } from "~/schema/errors.ts";
 
 export {
   getValidatedBody,
@@ -11,9 +28,4 @@ export {
   validateSchema,
 } from "~/schema/middleware.ts";
 
-export type {
-  Infer,
-  SchemaConfig,
-  ValidationError,
-  ValidationResult,
-} from "~/schema/types.ts";
+export type { SchemaConfig } from "~/schema/middleware.ts";

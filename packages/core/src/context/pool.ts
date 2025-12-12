@@ -5,7 +5,6 @@
 
 import { Context } from "~/context/context.ts";
 
-// Dummy request for pre-allocation
 const DUMMY_REQUEST = new Request("http://localhost/");
 
 export class ContextPool {
@@ -43,6 +42,13 @@ export class ContextPool {
   }
 
   release(ctx: Context): void {
+    ctx.request = DUMMY_REQUEST;
+    ctx.params = {};
+    ctx.state = {};
+
+    (ctx as any)._url = null;
+    (ctx as any)._pathname = "/";
+
     if (this.pool.length < this.maxSize) {
       this.pool.push(ctx);
     }

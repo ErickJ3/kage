@@ -1,6 +1,13 @@
-import type { Static, TSchema } from "@sinclair/typebox";
 import { Context } from "~/context/mod.ts";
-import { validate } from "~/schema/validator.ts";
+import {
+  type Infer,
+  type StandardSchema,
+  validate,
+} from "~/schema/standard.ts";
+import {
+  createValidationErrorResponse,
+  formatIssues,
+} from "~/schema/errors.ts";
 import type {
   InferSchema,
   PathParams,
@@ -57,10 +64,10 @@ function createTypedContext<TParams, TQuery, TBody>(
 
 export function createRoute<
   TPath extends string,
-  TParamsSchema extends TSchema | undefined = undefined,
-  TQuerySchema extends TSchema | undefined = undefined,
-  TBodySchema extends TSchema | undefined = undefined,
-  TResponseSchema extends TSchema | undefined = undefined,
+  TParamsSchema extends StandardSchema | undefined = undefined,
+  TQuerySchema extends StandardSchema | undefined = undefined,
+  TBodySchema extends StandardSchema | undefined = undefined,
+  TResponseSchema extends StandardSchema | undefined = undefined,
 >(config: {
   path: TPath;
   schema?: {
@@ -70,7 +77,8 @@ export function createRoute<
     response?: TResponseSchema;
   };
   handler: TypedHandler<
-    TParamsSchema extends TSchema ? Static<TParamsSchema> : PathParams<TPath>,
+    TParamsSchema extends StandardSchema ? Infer<TParamsSchema>
+      : PathParams<TPath>,
     InferSchema<TQuerySchema, Record<string, unknown>>,
     InferSchema<TBodySchema, unknown>,
     InferSchema<TResponseSchema, unknown>
@@ -90,12 +98,9 @@ export function wrapTypedHandler(
   return async (ctx: Context) => {
     let validatedParams = ctx.params;
     if (schemas.params) {
-      const result = validate(schemas.params, ctx.params);
+      const result = await validate(schemas.params, ctx.params);
       if (!result.success) {
-        return ctx.json(
-          { error: "Validation Error", details: result.errors },
-          400,
-        );
+        return createValidationErrorResponse(result.issues);
       }
       validatedParams = result.data as Record<string, string>;
     }
@@ -103,12 +108,9 @@ export function wrapTypedHandler(
     let validatedQuery: Record<string, unknown> = {};
     if (schemas.query) {
       const queryObj = Object.fromEntries(ctx.url.searchParams.entries());
-      const result = validate(schemas.query, queryObj);
+      const result = await validate(schemas.query, queryObj);
       if (!result.success) {
-        return ctx.json(
-          { error: "Validation Error", details: result.errors },
-          400,
-        );
+        return createValidationErrorResponse(result.issues);
       }
       validatedQuery = result.data as Record<string, unknown>;
     }
@@ -117,12 +119,9 @@ export function wrapTypedHandler(
     if (schemas.body) {
       try {
         const body = await ctx.request.json();
-        const result = validate(schemas.body, body);
+        const result = await validate(schemas.body, body);
         if (!result.success) {
-          return ctx.json(
-            { error: "Validation Error", details: result.errors },
-            400,
-          );
+          return createValidationErrorResponse(result.issues);
         }
         validatedBody = result.data;
       } catch {
@@ -147,10 +146,31 @@ export function wrapTypedHandler(
       >
     )(typedCtx);
 
-    if (schemas.response && !(response instanceof Response)) {
-      const result = validate(schemas.response, response);
-      if (!result.success) {
-        console.warn("Response validation failed:", result.errors);
+    if (schemas.response && Deno.env.get("DENO_ENV") !== "production") {
+      let dataToValidate: unknown;
+
+      if (response instanceof Response) {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (contentType.includes("application/json")) {
+          try {
+            const cloned = response.clone();
+            dataToValidate = await cloned.json();
+          } catch {
+            // not json, skip
+          }
+        }
+      } else {
+        dataToValidate = response;
+      }
+
+      if (dataToValidate !== undefined) {
+        const result = await validate(schemas.response, dataToValidate);
+        if (!result.success) {
+          console.warn(
+            "Response validation failed:",
+            formatIssues(result.issues),
+          );
+        }
       }
     }
 
@@ -172,55 +192,55 @@ export class RouteBuilder<
     this._path = path;
   }
 
-  params<T extends TSchema>(
+  params<T extends StandardSchema>(
     schema: T,
-  ): RouteBuilder<TPath, Static<T>, TQuery, TBody, TResponse> {
+  ): RouteBuilder<TPath, Infer<T>, TQuery, TBody, TResponse> {
     this._schemas.params = schema;
     return this as unknown as RouteBuilder<
       TPath,
-      Static<T>,
+      Infer<T>,
       TQuery,
       TBody,
       TResponse
     >;
   }
 
-  query<T extends TSchema>(
+  query<T extends StandardSchema>(
     schema: T,
-  ): RouteBuilder<TPath, TParams, Static<T>, TBody, TResponse> {
+  ): RouteBuilder<TPath, TParams, Infer<T>, TBody, TResponse> {
     this._schemas.query = schema;
     return this as unknown as RouteBuilder<
       TPath,
       TParams,
-      Static<T>,
+      Infer<T>,
       TBody,
       TResponse
     >;
   }
 
-  body<T extends TSchema>(
+  body<T extends StandardSchema>(
     schema: T,
-  ): RouteBuilder<TPath, TParams, TQuery, Static<T>, TResponse> {
+  ): RouteBuilder<TPath, TParams, TQuery, Infer<T>, TResponse> {
     this._schemas.body = schema;
     return this as unknown as RouteBuilder<
       TPath,
       TParams,
       TQuery,
-      Static<T>,
+      Infer<T>,
       TResponse
     >;
   }
 
-  response<T extends TSchema>(
+  response<T extends StandardSchema>(
     schema: T,
-  ): RouteBuilder<TPath, TParams, TQuery, TBody, Static<T>> {
+  ): RouteBuilder<TPath, TParams, TQuery, TBody, Infer<T>> {
     this._schemas.response = schema;
     return this as unknown as RouteBuilder<
       TPath,
       TParams,
       TQuery,
       TBody,
-      Static<T>
+      Infer<T>
     >;
   }
 
