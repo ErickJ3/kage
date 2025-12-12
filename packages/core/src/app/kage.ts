@@ -4,7 +4,7 @@ import {
   type Match,
   Router,
 } from "~/router/mod.ts";
-import type { Static, TSchema } from "@sinclair/typebox";
+import type { Infer, StandardSchema } from "~/schema/standard.ts";
 import type {
   ContextState,
   DeriveFn,
@@ -110,18 +110,19 @@ export type KageSchemaHandler<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
   TBody = unknown,
+  TResponse = unknown,
 > = (
   ctx: KageSchemaContext<TDecorators, TState, TDerived, TParams, TQuery, TBody>,
-) => unknown | Promise<unknown>;
+) => TResponse | Response | Promise<TResponse | Response>;
 
-type InferSchema<T, Default = unknown> = T extends TSchema ? Static<T>
+type InferSchema<T, Default = unknown> = T extends StandardSchema ? Infer<T>
   : Default;
 
 export interface KageSchemas<
-  TBodySchema extends TSchema | undefined = undefined,
-  TQuerySchema extends TSchema | undefined = undefined,
-  TParamsSchema extends TSchema | undefined = undefined,
-  TResponseSchema extends TSchema | undefined = undefined,
+  TBodySchema extends StandardSchema | undefined = undefined,
+  TQuerySchema extends StandardSchema | undefined = undefined,
+  TParamsSchema extends StandardSchema | undefined = undefined,
+  TResponseSchema extends StandardSchema | undefined = undefined,
 > {
   body?: TBodySchema;
   query?: TQuerySchema;
@@ -133,10 +134,10 @@ export interface KageSchemaConfig<
   TDecorators extends Record<string, unknown> = Base,
   TState extends Record<string, unknown> = Base,
   TDerived extends Record<string, unknown> = Base,
-  TBodySchema extends TSchema | undefined = undefined,
-  TQuerySchema extends TSchema | undefined = undefined,
-  TParamsSchema extends TSchema | undefined = undefined,
-  TResponseSchema extends TSchema | undefined = undefined,
+  TBodySchema extends StandardSchema | undefined = undefined,
+  TQuerySchema extends StandardSchema | undefined = undefined,
+  TParamsSchema extends StandardSchema | undefined = undefined,
+  TResponseSchema extends StandardSchema | undefined = undefined,
 > {
   schemas: KageSchemas<
     TBodySchema,
@@ -150,7 +151,8 @@ export interface KageSchemaConfig<
     TDerived,
     InferSchema<TParamsSchema, Record<string, string>>,
     InferSchema<TQuerySchema, Record<string, unknown>>,
-    InferSchema<TBodySchema, unknown>
+    InferSchema<TBodySchema, unknown>,
+    InferSchema<TResponseSchema, unknown>
   >;
 }
 
@@ -346,10 +348,10 @@ export class Kage<
 
   get<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     config: KageSchemaConfig<
@@ -364,10 +366,10 @@ export class Kage<
   ): this;
   get<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     schemas: KageSchemas<
@@ -382,7 +384,8 @@ export class Kage<
       TDerived,
       InferSchema<TParamsSchema, Record<string, string>>,
       InferSchema<TQuerySchema, Record<string, unknown>>,
-      InferSchema<TBodySchema, unknown>
+      InferSchema<TBodySchema, unknown>,
+      InferSchema<TResponseSchema, unknown>
     >,
   ): this;
   get<TPath extends string>(
@@ -401,10 +404,10 @@ export class Kage<
 
   post<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     config: KageSchemaConfig<
@@ -419,10 +422,10 @@ export class Kage<
   ): this;
   post<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     schemas: KageSchemas<
@@ -437,7 +440,8 @@ export class Kage<
       TDerived,
       InferSchema<TParamsSchema, Record<string, string>>,
       InferSchema<TQuerySchema, Record<string, unknown>>,
-      InferSchema<TBodySchema, unknown>
+      InferSchema<TBodySchema, unknown>,
+      InferSchema<TResponseSchema, unknown>
     >,
   ): this;
   post<TPath extends string>(
@@ -456,10 +460,10 @@ export class Kage<
 
   put<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     config: KageSchemaConfig<
@@ -474,10 +478,10 @@ export class Kage<
   ): this;
   put<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     schemas: KageSchemas<
@@ -492,7 +496,8 @@ export class Kage<
       TDerived,
       InferSchema<TParamsSchema, Record<string, string>>,
       InferSchema<TQuerySchema, Record<string, unknown>>,
-      InferSchema<TBodySchema, unknown>
+      InferSchema<TBodySchema, unknown>,
+      InferSchema<TResponseSchema, unknown>
     >,
   ): this;
   put<TPath extends string>(
@@ -511,10 +516,10 @@ export class Kage<
 
   patch<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     config: KageSchemaConfig<
@@ -529,10 +534,10 @@ export class Kage<
   ): this;
   patch<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     schemas: KageSchemas<
@@ -547,7 +552,8 @@ export class Kage<
       TDerived,
       InferSchema<TParamsSchema, Record<string, string>>,
       InferSchema<TQuerySchema, Record<string, unknown>>,
-      InferSchema<TBodySchema, unknown>
+      InferSchema<TBodySchema, unknown>,
+      InferSchema<TResponseSchema, unknown>
     >,
   ): this;
   patch<TPath extends string>(
@@ -566,10 +572,10 @@ export class Kage<
 
   delete<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     config: KageSchemaConfig<
@@ -584,10 +590,10 @@ export class Kage<
   ): this;
   delete<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     schemas: KageSchemas<
@@ -602,7 +608,8 @@ export class Kage<
       TDerived,
       InferSchema<TParamsSchema, Record<string, string>>,
       InferSchema<TQuerySchema, Record<string, unknown>>,
-      InferSchema<TBodySchema, unknown>
+      InferSchema<TBodySchema, unknown>,
+      InferSchema<TResponseSchema, unknown>
     >,
   ): this;
   delete<TPath extends string>(
@@ -621,10 +628,10 @@ export class Kage<
 
   head<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     config: KageSchemaConfig<
@@ -639,10 +646,10 @@ export class Kage<
   ): this;
   head<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     schemas: KageSchemas<
@@ -657,7 +664,8 @@ export class Kage<
       TDerived,
       InferSchema<TParamsSchema, Record<string, string>>,
       InferSchema<TQuerySchema, Record<string, unknown>>,
-      InferSchema<TBodySchema, unknown>
+      InferSchema<TBodySchema, unknown>,
+      InferSchema<TResponseSchema, unknown>
     >,
   ): this;
   head<TPath extends string>(
@@ -676,10 +684,10 @@ export class Kage<
 
   options<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     config: KageSchemaConfig<
@@ -694,10 +702,10 @@ export class Kage<
   ): this;
   options<
     TPath extends string,
-    TBodySchema extends TSchema | undefined = undefined,
-    TQuerySchema extends TSchema | undefined = undefined,
-    TParamsSchema extends TSchema | undefined = undefined,
-    TResponseSchema extends TSchema | undefined = undefined,
+    TBodySchema extends StandardSchema | undefined = undefined,
+    TQuerySchema extends StandardSchema | undefined = undefined,
+    TParamsSchema extends StandardSchema | undefined = undefined,
+    TResponseSchema extends StandardSchema | undefined = undefined,
   >(
     path: TPath,
     schemas: KageSchemas<
@@ -712,7 +720,8 @@ export class Kage<
       TDerived,
       InferSchema<TParamsSchema, Record<string, string>>,
       InferSchema<TQuerySchema, Record<string, unknown>>,
-      InferSchema<TBodySchema, unknown>
+      InferSchema<TBodySchema, unknown>,
+      InferSchema<TResponseSchema, unknown>
     >,
   ): this;
   options<TPath extends string>(
@@ -833,49 +842,31 @@ export class Kage<
   }
 
   private async handleRequest(req: Request): Promise<Response> {
-    const reqCtx = new Map<string, unknown>();
-    const requestContext = {
-      set: <T>(key: string, value: T) => reqCtx.set(key, value),
-      get: <T = unknown>(key: string) => reqCtx.get(key) as T | undefined,
-      has: (key: string) => reqCtx.has(key),
-    };
-
-    for (const hook of this.contextState.onRequestHooks) {
-      const result = await hook(req, requestContext);
-      if (result instanceof Response) {
-        return result;
-      }
-      if (result !== null) {
-        req = result;
-      }
-    }
-
-    const urlStr = req.url;
-    const method = req.method as HttpMethod;
-
-    let pathname: string;
-    const schemeEnd = urlStr.indexOf("://");
-    if (schemeEnd === -1) {
-      pathname = "/";
-    } else {
-      const pathStart = urlStr.indexOf("/", schemeEnd + 3);
-      if (pathStart === -1) {
-        pathname = "/";
-      } else {
-        let pathEnd = urlStr.indexOf("?", pathStart);
-        if (pathEnd === -1) pathEnd = urlStr.indexOf("#", pathStart);
-        if (pathEnd === -1) pathEnd = urlStr.length;
-        pathname = urlStr.slice(pathStart, pathEnd);
-      }
-    }
-
-    const match = this.router.find(method, pathname);
-
-    if (!match) {
-      return new Response(NOT_FOUND_BODY, { status: 404 });
-    }
+    const requestContext = this.createRequestContext();
 
     try {
+      for (const hook of this.contextState.onRequestHooks) {
+        const result = await hook(req, requestContext);
+
+        if (result instanceof Response) {
+          return result;
+        }
+
+        if (result !== null && result !== undefined) {
+          req = result;
+        }
+      }
+
+      const url = new URL(req.url, "http://localhost");
+      const pathname = url.pathname;
+      const method = req.method as HttpMethod;
+
+      const match = this.router.find(method, pathname);
+
+      if (!match) {
+        return new Response(NOT_FOUND_BODY, { status: 404 });
+      }
+
       const response = await this.executeRequest(req, match, pathname);
 
       let finalResponse = response;
@@ -887,6 +878,22 @@ export class Kage<
     } catch (error) {
       return this.handleError(error, req, requestContext);
     }
+  }
+
+  private createRequestContext() {
+    const map = new Map<string, unknown>();
+
+    return {
+      set<T>(key: string, value: T) {
+        map.set(key, value);
+      },
+      get<T = unknown>(key: string): T | undefined {
+        return map.get(key) as T | undefined;
+      },
+      has(key: string) {
+        return map.has(key);
+      },
+    };
   }
 
   private async handleError(

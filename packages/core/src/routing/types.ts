@@ -1,27 +1,48 @@
-import type { Static, TSchema } from "@sinclair/typebox";
+import type { Infer, StandardSchema } from "~/schema/standard.ts";
 
+/**
+ * Extract path parameter names from a path pattern.
+ *
+ * @example
+ * ExtractPathParams<"/users/:id/posts/:postId"> // "id" | "postId"
+ */
 export type ExtractPathParams<T extends string> = T extends
   `${string}:${infer Param}/${infer Rest}`
   ? Param | ExtractPathParams<`/${Rest}`>
   : T extends `${string}:${infer Param}` ? Param
   : never;
 
+/**
+ * Create a params object type from a path pattern.
+ *
+ * @example
+ * PathParams<"/users/:id"> // { id: string }
+ */
 export type PathParams<T extends string> = {
   [K in ExtractPathParams<T>]: string;
 };
 
+/**
+ * Infer schema type with a default fallback.
+ */
 export type InferSchema<
-  T extends TSchema | undefined,
+  T extends StandardSchema | undefined,
   Default = unknown,
-> = T extends TSchema ? Static<T> : Default;
+> = T extends StandardSchema ? Infer<T> : Default;
 
+/**
+ * Schema configuration for routes.
+ */
 export interface TypedSchemaConfig {
-  params?: TSchema;
-  query?: TSchema;
-  body?: TSchema;
-  response?: TSchema;
+  params?: StandardSchema;
+  query?: StandardSchema;
+  body?: StandardSchema;
+  response?: StandardSchema;
 }
 
+/**
+ * Typed context available in handlers.
+ */
 export interface TypedContext<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
@@ -60,6 +81,12 @@ export interface TypedContext<
   response(body?: BodyInit | null, init?: ResponseInit): Response;
 }
 
+/**
+ * Typed handler function.
+ *
+ * The TResponse type parameter enforces the return type at compile-time
+ * when a response schema is provided.
+ */
 export type TypedHandler<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,
@@ -69,12 +96,18 @@ export type TypedHandler<
   ctx: TypedContext<TParams, TQuery, TBody>,
 ) => TResponse | Response | Promise<TResponse | Response>;
 
+/**
+ * Route configuration with schema validation.
+ *
+ * When a response schema is provided, TypeScript enforces that the handler
+ * returns a compatible type.
+ */
 export interface TypedRouteConfig<
   TPath extends string = string,
-  TParamsSchema extends TSchema | undefined = undefined,
-  TQuerySchema extends TSchema | undefined = undefined,
-  TBodySchema extends TSchema | undefined = undefined,
-  TResponseSchema extends TSchema | undefined = undefined,
+  TParamsSchema extends StandardSchema | undefined = undefined,
+  TQuerySchema extends StandardSchema | undefined = undefined,
+  TBodySchema extends StandardSchema | undefined = undefined,
+  TResponseSchema extends StandardSchema | undefined = undefined,
 > {
   path: TPath;
   schema?: {
@@ -84,13 +117,17 @@ export interface TypedRouteConfig<
     response?: TResponseSchema;
   };
   handler: TypedHandler<
-    TParamsSchema extends TSchema ? Static<TParamsSchema> : PathParams<TPath>,
+    TParamsSchema extends StandardSchema ? Infer<TParamsSchema>
+      : PathParams<TPath>,
     InferSchema<TQuerySchema, Record<string, unknown>>,
     InferSchema<TBodySchema, unknown>,
     InferSchema<TResponseSchema, unknown>
   >;
 }
 
+/**
+ * Internal route definition.
+ */
 export interface TypedRouteDefinition<
   TParams = Record<string, string>,
   TQuery = Record<string, unknown>,

@@ -1,27 +1,56 @@
-import type { Static, TSchema } from "@sinclair/typebox";
 import type { Context } from "~/context/context.ts";
 import type { Middleware } from "~/middleware/types.ts";
-import { validate, validationErrorResponse } from "~/schema/validator.ts";
-import type { SchemaConfig } from "~/schema/types.ts";
+import {
+  type Infer,
+  type StandardSchema,
+  validate,
+} from "~/schema/standard.ts";
+import {
+  createValidationErrorResponse,
+  formatIssues,
+} from "~/schema/errors.ts";
 
+/**
+ * Schema configuration for middleware validation.
+ */
+export interface SchemaConfig {
+  body?: StandardSchema;
+  query?: StandardSchema;
+  params?: StandardSchema;
+  response?: StandardSchema;
+}
+
+/**
+ * Middleware that validates request data against Standard Schema schemas.
+ *
+ * @example
+ * ```typescript
+ * import { z } from "zod";
+ *
+ * app.use(validateSchema({
+ *   body: z.object({ name: z.string() }),
+ *   query: z.object({ page: z.coerce.number() }),
+ * }));
+ * ```
+ */
 export function validateSchema(config: SchemaConfig): Middleware {
   return async (ctx: Context, next) => {
     if (config.query) {
       const queryObj = Object.fromEntries(ctx.query.entries());
-      const result = validate(config.query, queryObj);
+      const result = await validate(config.query, queryObj);
 
       if (!result.success) {
-        return validationErrorResponse(result.errors!);
+        return createValidationErrorResponse(result.issues);
       }
 
       ctx.state.validatedQuery = result.data;
     }
 
     if (config.params) {
-      const result = validate(config.params, ctx.params);
+      const result = await validate(config.params, ctx.params);
 
       if (!result.success) {
-        return validationErrorResponse(result.errors!);
+        return createValidationErrorResponse(result.issues);
       }
 
       ctx.state.validatedParams = result.data;
@@ -57,10 +86,10 @@ export function validateSchema(config: SchemaConfig): Middleware {
         );
       }
 
-      const result = validate(config.body, body);
+      const result = await validate(config.body, body);
 
       if (!result.success) {
-        return validationErrorResponse(result.errors!);
+        return createValidationErrorResponse(result.issues);
       }
 
       ctx.state.validatedBody = result.data;
@@ -72,10 +101,13 @@ export function validateSchema(config: SchemaConfig): Middleware {
       try {
         const responseClone = response.clone();
         const responseBody = await responseClone.json();
-        const result = validate(config.response, responseBody);
+        const result = await validate(config.response, responseBody);
 
         if (!result.success) {
-          console.warn("Response validation failed:", result.errors);
+          console.warn(
+            "Response validation failed:",
+            formatIssues(result.issues),
+          );
         }
       } catch {
         // Response is not JSON or failed to parse
@@ -86,20 +118,29 @@ export function validateSchema(config: SchemaConfig): Middleware {
   };
 }
 
-export function getValidatedBody<T extends TSchema>(
+/**
+ * Get validated body from context state.
+ */
+export function getValidatedBody<T extends StandardSchema>(
   ctx: Context,
-): Static<T> | undefined {
-  return ctx.state.validatedBody as Static<T> | undefined;
+): Infer<T> | undefined {
+  return ctx.state.validatedBody as Infer<T> | undefined;
 }
 
-export function getValidatedQuery<T extends TSchema>(
+/**
+ * Get validated query from context state.
+ */
+export function getValidatedQuery<T extends StandardSchema>(
   ctx: Context,
-): Static<T> | undefined {
-  return ctx.state.validatedQuery as Static<T> | undefined;
+): Infer<T> | undefined {
+  return ctx.state.validatedQuery as Infer<T> | undefined;
 }
 
-export function getValidatedParams<T extends TSchema>(
+/**
+ * Get validated params from context state.
+ */
+export function getValidatedParams<T extends StandardSchema>(
   ctx: Context,
-): Static<T> | undefined {
-  return ctx.state.validatedParams as Static<T> | undefined;
+): Infer<T> | undefined {
+  return ctx.state.validatedParams as Infer<T> | undefined;
 }

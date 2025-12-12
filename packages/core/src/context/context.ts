@@ -88,38 +88,24 @@ export class Context {
     pathname?: string,
   ): void {
     this.request = request;
-    this._url = url ?? null;
-    if (pathname) {
-      this._pathname = pathname;
-    } else if (url) {
-      this._pathname = url.pathname;
-    } else {
-      const urlStr = request.url;
-      const protocolEnd = urlStr.indexOf("://");
-      if (protocolEnd !== -1) {
-        const pathStart = urlStr.indexOf("/", protocolEnd + 3);
-        if (pathStart !== -1) {
-          const queryStart = urlStr.indexOf("?", pathStart);
-          const hashStart = urlStr.indexOf("#", pathStart);
-          let pathEnd = urlStr.length;
-          if (
-            queryStart !== -1 && (hashStart === -1 || queryStart < hashStart)
-          ) {
-            pathEnd = queryStart;
-          } else if (hashStart !== -1) {
-            pathEnd = hashStart;
-          }
-          this._pathname = urlStr.slice(pathStart, pathEnd);
-        } else {
-          this._pathname = "/";
-        }
-      } else {
-        this._url = new URL(urlStr);
-        this._pathname = this._url.pathname;
-      }
-    }
     this.params = params;
     this._state = null;
+
+    if (url) {
+      this._url = url;
+      this._pathname = pathname ?? url.pathname;
+      return;
+    }
+
+    if (pathname) {
+      this._pathname = pathname;
+      this._url = null;
+      return;
+    }
+
+    const u = new URL(request.url);
+    this._url = u;
+    this._pathname = u.pathname;
   }
 
   get url(): URL {
@@ -168,22 +154,22 @@ export class Context {
    * @returns Parsed JSON object
    * @throws {Error} If body is not valid JSON
    */
-  async bodyJson<T = unknown>(): Promise<T> {
-    return await this.request.json();
+  bodyJson<T = unknown>(): Promise<T> {
+    return this.request.json();
   }
 
   /**
    * Parse request body as text.
    */
-  async bodyText(): Promise<string> {
-    return await this.request.text();
+  bodyText(): Promise<string> {
+    return this.request.text();
   }
 
   /**
    * Parse request body as FormData.
    */
-  async bodyFormData(): Promise<FormData> {
-    return await this.request.formData();
+  bodyFormData(): Promise<FormData> {
+    return this.request.formData();
   }
 
   /**
@@ -196,8 +182,8 @@ export class Context {
   /**
    * Get request body as Blob.
    */
-  async bodyBlob(): Promise<Blob> {
-    return await this.request.blob();
+  bodyBlob(): Promise<Blob> {
+    return this.request.blob();
   }
 
   /**
@@ -275,35 +261,35 @@ export class Context {
    * Helper to create not found response (404).
    */
   notFound(message = "Not Found"): Response {
-    return this.json({ error: message }, 404);
+    return this.error(404, message);
   }
 
   /**
    * Helper to create bad request response (400).
    */
   badRequest(message = "Bad Request"): Response {
-    return this.json({ error: message }, 400);
+    return this.error(400, message);
   }
 
   /**
    * Helper to create unauthorized response (401).
    */
   unauthorized(message = "Unauthorized"): Response {
-    return this.json({ error: message }, 401);
+    return this.error(401, message);
   }
 
   /**
    * Helper to create forbidden response (403).
    */
   forbidden(message = "Forbidden"): Response {
-    return this.json({ error: message }, 403);
+    return this.error(403, message);
   }
 
   /**
    * Helper to create internal server error response (500).
    */
   internalError(message = "Internal Server Error"): Response {
-    return this.json({ error: message }, 500);
+    return this.error(500, message);
   }
 
   /**
@@ -340,5 +326,15 @@ export class Context {
       status,
       headers: { "Content-Type": contentType },
     });
+  }
+
+  /**
+   * Helper to return error message
+   *
+   * @param status - HTTP status code
+   * @param message - Error message
+   */
+  error(status: number, message: string) {
+    return this.json({ error: message }, status);
   }
 }

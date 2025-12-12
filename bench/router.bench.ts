@@ -9,7 +9,7 @@
  * - Route registration overhead
  */
 
-import { Router } from "../packages/router/src/mod.ts";
+import { Router } from "../packages/core/src/router/mod.ts";
 
 /**
  * Benchmark: Static route lookup

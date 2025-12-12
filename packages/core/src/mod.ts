@@ -1,24 +1,9 @@
 /**
  * Kage Core
- */
-
-import { Type } from "@sinclair/typebox";
-
-/**
- * TypeBox schema builder - use this to define schemas.
  *
- * @example
- * ```typescript
- * import { Kage, t } from "@kage/core";
- *
- * const userSchema = t.Object({
- *   name: t.String({ minLength: 1 }),
- *   email: t.String({ format: "email" }),
- * });
- * ```
+ * A minimal, type-safe web framework Deno-first.
+ * Uses Standard Schema for validation - compatible with Zod, Valibot, ArkType, etc.
  */
-export const t = Type;
-export type { Static, TSchema } from "@sinclair/typebox";
 
 export { Kage, KageGroup } from "~/app/mod.ts";
 export type {
@@ -51,7 +36,7 @@ export {
 export type {
   ErrorResponse,
   ErrorTransformer,
-  ValidationIssue,
+  ValidationIssue as ErrorValidationIssue,
 } from "~/errors/mod.ts";
 
 export type {
@@ -91,18 +76,27 @@ export type {
 export { Router } from "~/router/mod.ts";
 export type { Handler, HttpMethod, Match } from "~/router/mod.ts";
 
+// Schema validation exports (Standard Schema based)
 export {
+  createValidationErrorResponse,
+  formatIssues,
+  formatPath,
   getValidatedBody,
   getValidatedParams,
   getValidatedQuery,
+  isStandardSchema,
   validate,
   validateOrThrow,
   validateSchema,
   validationErrorResponse,
 } from "~/schema/mod.ts";
+
 export type {
+  FormattedValidationError,
   Infer,
+  InferInput,
   SchemaConfig,
-  ValidationError,
+  StandardSchema,
+  ValidationIssue,
   ValidationResult,
 } from "~/schema/mod.ts";

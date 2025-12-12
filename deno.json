@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "exports": "./mod.ts",
   "imports": {
-    "@kage/core": "./packages/core/src/mod.ts"
+    "@kage/core": "./packages/core/src/mod.ts",
+    "zod": "npm:zod@^3.24.0"
   },
   "workspace": [
     "./packages/core",
