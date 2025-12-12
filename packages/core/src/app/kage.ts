@@ -151,6 +151,12 @@ export interface KageSchemaConfig<
 
 const TEXT_CONTENT_TYPE = "text/plain; charset=utf-8";
 const OCTET_CONTENT_TYPE = "application/octet-stream";
+const TEXT_HEADERS: HeadersInit = { "Content-Type": TEXT_CONTENT_TYPE };
+const BINARY_HEADERS: HeadersInit = { "Content-Type": OCTET_CONTENT_TYPE };
+const TEXT_INIT_200: ResponseInit = { headers: TEXT_HEADERS };
+const BINARY_INIT_200: ResponseInit = { headers: BINARY_HEADERS };
+const NOT_FOUND_BODY = "Not Found";
+const INTERNAL_ERROR_BODY = "Internal Server Error";
 
 /** @internal Route definition for mounting */
 interface RawRoute {
@@ -160,14 +166,209 @@ interface RawRoute {
   hasSchema: boolean;
 }
 
-const TEXT_HEADERS: HeadersInit = { "Content-Type": TEXT_CONTENT_TYPE };
-const BINARY_HEADERS: HeadersInit = { "Content-Type": OCTET_CONTENT_TYPE };
+function normalizePath(base: string, path: string): string {
+  if (base === "/") {
+    return path.startsWith("/") ? path : `/${path}`;
+  }
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${normalizedBase}${normalizedPath}`;
+}
 
-const TEXT_INIT_200: ResponseInit = { headers: TEXT_HEADERS };
-const BINARY_INIT_200: ResponseInit = { headers: BINARY_HEADERS };
+function resultToResponse(result: unknown): Response {
+  if (result instanceof Response) {
+    return result;
+  }
 
-const NOT_FOUND_BODY = "Not Found";
-const INTERNAL_ERROR_BODY = "Internal Server Error";
+  if (result == null) {
+    return new Response(null, { status: 204 });
+  }
+
+  if (typeof result === "object") {
+    if (result instanceof Uint8Array) {
+      return new Response(result as BodyInit, BINARY_INIT_200);
+    }
+    if (result instanceof ArrayBuffer) {
+      return new Response(result as BodyInit, BINARY_INIT_200);
+    }
+    if (result instanceof ReadableStream) {
+      return new Response(result as BodyInit, BINARY_INIT_200);
+    }
+    return Response.json(result);
+  }
+  if (typeof result === "string") {
+    return new Response(result, TEXT_INIT_200);
+  }
+  return Response.json(result);
+}
+
+/** Apply decorators to context (mutates ctx) */
+function applyDecorators(
+  ctx: Record<string, unknown>,
+  decorators: Record<string, unknown>,
+  keys: string[],
+): void {
+  for (let i = 0; i < keys.length; i++) {
+    ctx[keys[i]] = decorators[keys[i]];
+  }
+}
+
+/** Apply derive functions to context (mutates ctx) */
+async function applyDerives(
+  ctx: Context,
+  extendedCtx: Record<string, unknown>,
+  deriveFns: DeriveFn<Record<string, unknown>>[],
+): Promise<void> {
+  for (let i = 0; i < deriveFns.length; i++) {
+    const derived = deriveFns[i](ctx);
+    const resolvedDerived = derived instanceof Promise
+      ? await derived
+      : derived;
+    for (const key in resolvedDerived) {
+      extendedCtx[key] = resolvedDerived[key];
+    }
+  }
+}
+
+/** Execute before handle hooks, return Response if short-circuited */
+async function executeBeforeHooks(
+  ctx: unknown,
+  hooks: OnBeforeHandleHook<unknown>[],
+): Promise<Response | null> {
+  for (let i = 0; i < hooks.length; i++) {
+    const result = hooks[i](ctx);
+    if (result instanceof Response) {
+      return result;
+    }
+    if (result instanceof Promise) {
+      const resolved = await result;
+      if (resolved instanceof Response) {
+        return resolved;
+      }
+    }
+  }
+  return null;
+}
+
+/** Execute after handle hooks */
+async function executeAfterHooks(
+  ctx: unknown,
+  response: Response,
+  hooks: OnAfterHandleHook<unknown>[],
+): Promise<Response> {
+  let res = response;
+  for (let i = 0; i < hooks.length; i++) {
+    const hookResult = hooks[i](ctx, res);
+    res = hookResult instanceof Promise ? await hookResult : hookResult;
+  }
+  return res;
+}
+
+interface PluginWrapperConfig<TState> {
+  deriveFns: DeriveFn<Record<string, unknown>>[];
+  decorators: Record<string, unknown>;
+  decoratorKeys: string[];
+  state: TState;
+  beforeHooks: OnBeforeHandleHook<unknown>[];
+  afterHooks: OnAfterHandleHook<unknown>[];
+  onErrorHooks?: OnErrorHook[];
+}
+
+function createPluginWrapper<TState>(
+  handler: Handler,
+  config: PluginWrapperConfig<TState>,
+): Handler {
+  const {
+    deriveFns,
+    decorators,
+    decoratorKeys,
+    state,
+    beforeHooks,
+    afterHooks,
+    onErrorHooks,
+  } = config;
+
+  const hasDerive = deriveFns.length > 0;
+  const hasDecorators = decoratorKeys.length > 0;
+  const hasBeforeHooks = beforeHooks.length > 0;
+  const hasAfterHooks = afterHooks.length > 0;
+  const hasErrorHooks = onErrorHooks && onErrorHooks.length > 0;
+
+  if (
+    !hasDerive && !hasDecorators && !hasBeforeHooks && !hasAfterHooks &&
+    !hasErrorHooks
+  ) {
+    return (ctx: Context) => {
+      (ctx as Context & { store: TState }).store = state;
+      return handler(ctx);
+    };
+  }
+
+  if (!hasDerive && !hasBeforeHooks && !hasAfterHooks && !hasErrorHooks) {
+    return (ctx: Context) => {
+      const extendedCtx = Object.create(ctx) as
+        & Context
+        & Record<string, unknown>
+        & { store: TState };
+      applyDecorators(extendedCtx, decorators, decoratorKeys);
+      extendedCtx.store = state;
+      return handler(extendedCtx);
+    };
+  }
+
+  return async (ctx: Context) => {
+    const extendedCtx = Object.create(ctx) as
+      & Context
+      & Record<string, unknown>
+      & { store: TState };
+
+    if (hasDecorators) {
+      applyDecorators(extendedCtx, decorators, decoratorKeys);
+    }
+
+    extendedCtx.store = state;
+
+    if (hasDerive) {
+      await applyDerives(
+        extendedCtx as unknown as Context,
+        extendedCtx,
+        deriveFns,
+      );
+    }
+
+    if (hasBeforeHooks) {
+      const earlyResponse = await executeBeforeHooks(extendedCtx, beforeHooks);
+      if (earlyResponse) return earlyResponse;
+    }
+
+    let response: Response;
+    try {
+      let result = handler(extendedCtx);
+      if (result instanceof Promise) {
+        result = await result;
+      }
+      response = result instanceof Response ? result : resultToResponse(result);
+    } catch (error) {
+      if (hasErrorHooks) {
+        for (const hook of onErrorHooks!) {
+          const errorResponse = await hook(error, ctx.request, {
+            set: () => {},
+            get: () => undefined,
+            has: () => false,
+          });
+          if (errorResponse) return errorResponse;
+        }
+      }
+      throw error;
+    }
+
+    if (hasAfterHooks) {
+      response = await executeAfterHooks(extendedCtx, response, afterHooks);
+    }
+
+    return response;
+  };
+}
 
 /**
  * Kage application with type-safe plugin system.
@@ -224,18 +425,6 @@ export class Kage<
 
   /**
    * Add an immutable singleton value to all handlers.
-   * Decorated values are available on the context and are set once at startup.
-   *
-   * @example
-   * ```typescript
-   * const app = new Kage()
-   *   .decorate("db", new Database())
-   *   .decorate("cache", new Cache())
-   *   .get("/users", (ctx) => {
-   *     const users = ctx.db.query("SELECT * FROM users");
-   *     return ctx.json(users);
-   *   });
-   * ```
    */
   decorate<K extends string, V>(
     key: K,
@@ -257,17 +446,6 @@ export class Kage<
 
   /**
    * Add mutable global state accessible via ctx.store.
-   * State is shared across all requests and can be modified.
-   *
-   * @example
-   * ```typescript
-   * const app = new Kage()
-   *   .state("requestCount", 0)
-   *   .get("/", (ctx) => {
-   *     ctx.store.requestCount++;
-   *     return ctx.json({ count: ctx.store.requestCount });
-   *   });
-   * ```
    */
   state<K extends string, V>(
     key: K,
@@ -289,62 +467,21 @@ export class Kage<
 
   /**
    * Derive values from request context.
-   * Derive functions are called once per request and have access to headers, params, etc.
-   *
-   * @example
-   * ```typescript
-   * const app = new Kage()
-   *   .derive(({ headers }) => ({
-   *     userId: headers.get("x-user-id"),
-   *     lang: headers.get("accept-language")?.split(",")[0] ?? "en",
-   *   }))
-   *   .get("/profile", (ctx) => {
-   *     return ctx.json({ userId: ctx.userId, lang: ctx.lang });
-   *   });
-   * ```
    */
   derive<TNew extends Record<string, unknown>>(
     fn: DeriveFn<TNew>,
   ): Kage<TDecorators, TState, TDerived & TNew> {
     this.contextState.deriveFns.push(fn as DeriveFn<Record<string, unknown>>);
-
     return this as unknown as Kage<TDecorators, TState, TDerived & TNew>;
   }
 
   /**
    * Add middleware to the application.
-   *
-   * @example
-   * ```typescript
-   * const app = new Kage()
-   *   .use(async (ctx, next) => {
-   *     console.log("Before handler");
-   *     const response = await next();
-   *     console.log("After handler");
-   *     return response;
-   *   });
-   * ```
    */
   use(middleware: Middleware): this;
 
   /**
    * Apply a plugin function to this app instance.
-   * Plugins can add decorators, state, derived values, routes, and middleware.
-   *
-   * @example
-   * ```typescript
-   * function authPlugin<TD extends P, TS extends P, TDR extends P>(app: Kage<TD, TS, TDR>) {
-   *   return app
-   *     .decorate("jwt", new JWTService())
-   *     .derive(({ headers }) => ({
-   *       user: verifyToken(headers.get("authorization")),
-   *     }));
-   * }
-   *
-   * const app = new Kage()
-   *   .use(authPlugin)
-   *   .get("/me", (ctx) => ctx.json(ctx.user));
-   * ```
    */
   use<
     TOutDecorators extends Record<string, unknown>,
@@ -358,7 +495,6 @@ export class Kage<
 
   // deno-lint-ignore no-explicit-any
   use(pluginOrMiddleware: any): any {
-    // Check if it's a middleware (takes ctx and next - 2 parameters)
     if (
       typeof pluginOrMiddleware === "function" &&
       pluginOrMiddleware.length === 2
@@ -368,7 +504,6 @@ export class Kage<
       return this;
     }
 
-    // It's a plugin function (takes 1 parameter - the app)
     if (
       typeof pluginOrMiddleware === "function" &&
       pluginOrMiddleware.length === 1
@@ -376,7 +511,6 @@ export class Kage<
       return pluginOrMiddleware(this);
     }
 
-    // Fallback: treat as middleware
     this.middleware.push(pluginOrMiddleware as Middleware);
     this.composedMiddleware = null;
     return this;
@@ -384,19 +518,6 @@ export class Kage<
 
   /**
    * Create a route group with a prefix and optional scoped plugins.
-   *
-   * @example
-   * ```typescript
-   * const app = new Kage()
-   *   .group("/api", (api) =>
-   *     api
-   *       .derive(({ headers }) => ({
-   *         apiKey: headers.get("x-api-key"),
-   *       }))
-   *       .get("/users", (ctx) => ctx.json({ apiKey: ctx.apiKey }))
-   *   )
-   *   .get("/health", (ctx) => ctx.json({ status: "ok" }));
-   * ```
    */
   group<
     TGroupDecorators extends Record<string, unknown>,
@@ -414,7 +535,7 @@ export class Kage<
   ): this {
     const group = new KageGroup<TDecorators, TState, TDerived>(
       this,
-      this.normalizePath(this.basePath, prefix),
+      normalizePath(this.basePath, prefix),
       { ...this.contextState },
     );
 
@@ -426,7 +547,6 @@ export class Kage<
 
   /**
    * Register a hook that runs before route matching.
-   * Can return a Response to short-circuit, or modify the Request.
    */
   onRequest(hook: OnRequestHook): this {
     this.contextState.onRequestHooks.push(hook);
@@ -435,7 +555,6 @@ export class Kage<
 
   /**
    * Register a hook that runs after handler execution.
-   * Can transform the response.
    */
   onResponse(hook: OnResponseHook): this {
     this.contextState.onResponseHooks.push(hook);
@@ -444,7 +563,6 @@ export class Kage<
 
   /**
    * Register an error handler hook.
-   * Return a Response to handle the error, or null to pass to next handler.
    */
   onError(hook: OnErrorHook): this {
     this.contextState.onErrorHooks.push(hook);
@@ -453,7 +571,6 @@ export class Kage<
 
   /**
    * Register a hook that runs before handler execution.
-   * Can return a Response to short-circuit.
    */
   onBeforeHandle(
     hook: OnBeforeHandleHook<
@@ -468,7 +585,6 @@ export class Kage<
 
   /**
    * Register a hook that runs after handler execution.
-   * Can transform the response.
    */
   onAfterHandle(
     hook: OnAfterHandleHook<
@@ -490,7 +606,6 @@ export class Kage<
     }
     return this.composedMiddleware;
   }
-
   get<
     TPath extends string,
     TBodySchema extends TSchema | undefined = undefined,
@@ -540,13 +655,8 @@ export class Kage<
     path: TPath,
     handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  get(
-    path: string,
-    // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
-    // deno-lint-ignore no-explicit-any
-    handler?: any,
-  ): this {
+  // deno-lint-ignore no-explicit-any
+  get(path: string, handlerOrConfig: any, handler?: any): this {
     this.addRoute("GET", path, handlerOrConfig, handler);
     return this;
   }
@@ -600,13 +710,8 @@ export class Kage<
     path: TPath,
     handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  post(
-    path: string,
-    // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
-    // deno-lint-ignore no-explicit-any
-    handler?: any,
-  ): this {
+  // deno-lint-ignore no-explicit-any
+  post(path: string, handlerOrConfig: any, handler?: any): this {
     this.addRoute("POST", path, handlerOrConfig, handler);
     return this;
   }
@@ -660,13 +765,8 @@ export class Kage<
     path: TPath,
     handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  put(
-    path: string,
-    // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
-    // deno-lint-ignore no-explicit-any
-    handler?: any,
-  ): this {
+  // deno-lint-ignore no-explicit-any
+  put(path: string, handlerOrConfig: any, handler?: any): this {
     this.addRoute("PUT", path, handlerOrConfig, handler);
     return this;
   }
@@ -720,13 +820,8 @@ export class Kage<
     path: TPath,
     handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  patch(
-    path: string,
-    // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
-    // deno-lint-ignore no-explicit-any
-    handler?: any,
-  ): this {
+  // deno-lint-ignore no-explicit-any
+  patch(path: string, handlerOrConfig: any, handler?: any): this {
     this.addRoute("PATCH", path, handlerOrConfig, handler);
     return this;
   }
@@ -780,13 +875,8 @@ export class Kage<
     path: TPath,
     handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  delete(
-    path: string,
-    // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
-    // deno-lint-ignore no-explicit-any
-    handler?: any,
-  ): this {
+  // deno-lint-ignore no-explicit-any
+  delete(path: string, handlerOrConfig: any, handler?: any): this {
     this.addRoute("DELETE", path, handlerOrConfig, handler);
     return this;
   }
@@ -840,13 +930,8 @@ export class Kage<
     path: TPath,
     handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  head(
-    path: string,
-    // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
-    // deno-lint-ignore no-explicit-any
-    handler?: any,
-  ): this {
+  // deno-lint-ignore no-explicit-any
+  head(path: string, handlerOrConfig: any, handler?: any): this {
     this.addRoute("HEAD", path, handlerOrConfig, handler);
     return this;
   }
@@ -900,13 +985,8 @@ export class Kage<
     path: TPath,
     handler: KageHandler<TDecorators, TState, TDerived, PathParams<TPath>>,
   ): this;
-  options(
-    path: string,
-    // deno-lint-ignore no-explicit-any
-    handlerOrConfig: any,
-    // deno-lint-ignore no-explicit-any
-    handler?: any,
-  ): this {
+  // deno-lint-ignore no-explicit-any
+  options(path: string, handlerOrConfig: any, handler?: any): this {
     this.addRoute("OPTIONS", path, handlerOrConfig, handler);
     return this;
   }
@@ -919,7 +999,7 @@ export class Kage<
     // deno-lint-ignore no-explicit-any
     handler?: any,
   ): void {
-    const fullPath = this.resolvePath(path);
+    const fullPath = normalizePath(this.basePath, path);
 
     // New API: app.post("/path", { body: t.Object(...) }, (ctx) => ...)
     if (handler !== undefined && typeof handler === "function") {
@@ -975,105 +1055,14 @@ export class Kage<
   }
 
   private wrapWithPlugins(handler: Handler): Handler {
-    const deriveFns = this.contextState.deriveFns;
-    const decoratorKeys = Object.keys(this.contextState.decorators);
-    const decorators = this.contextState.decorators;
-    const state = this.contextState.state;
-    const beforeHandleHooks = this.contextState.onBeforeHandleHooks;
-    const afterHandleHooks = this.contextState.onAfterHandleHooks;
-
-    const hasDerive = deriveFns.length > 0;
-    const hasDecorators = decoratorKeys.length > 0;
-    const hasBeforeHooks = beforeHandleHooks.length > 0;
-    const hasAfterHooks = afterHandleHooks.length > 0;
-
-    if (!hasDerive && !hasDecorators && !hasBeforeHooks && !hasAfterHooks) {
-      return (ctx: Context) => {
-        (ctx as Context & { store: TState }).store = state;
-        return handler(ctx);
-      };
-    }
-
-    if (!hasDerive && !hasBeforeHooks && !hasAfterHooks) {
-      return (ctx: Context) => {
-        const extendedCtx = ctx as Context & TDecorators & { store: TState };
-        for (const key of decoratorKeys) {
-          (extendedCtx as Record<string, unknown>)[key] =
-            decorators[key as keyof TDecorators];
-        }
-        extendedCtx.store = state;
-        return handler(extendedCtx);
-      };
-    }
-
-    return async (ctx: Context) => {
-      const extendedCtx = ctx as
-        & Context
-        & TDecorators
-        & { store: TState }
-        & TDerived;
-
-      if (hasDecorators) {
-        for (const key of decoratorKeys) {
-          (extendedCtx as Record<string, unknown>)[key] =
-            decorators[key as keyof TDecorators];
-        }
-      }
-      extendedCtx.store = state;
-
-      if (hasDerive) {
-        for (const deriveFn of deriveFns) {
-          const derived = deriveFn(ctx);
-          if (derived instanceof Promise) {
-            const resolvedDerived = await derived;
-            for (const key in resolvedDerived) {
-              (extendedCtx as Record<string, unknown>)[key] =
-                resolvedDerived[key];
-            }
-          } else {
-            for (const key in derived) {
-              (extendedCtx as Record<string, unknown>)[key] = derived[key];
-            }
-          }
-        }
-      }
-
-      if (hasBeforeHooks) {
-        for (const hook of beforeHandleHooks) {
-          const result = hook(extendedCtx);
-          if (result instanceof Response) {
-            return result;
-          }
-          if (result instanceof Promise) {
-            const resolved = await result;
-            if (resolved instanceof Response) {
-              return resolved;
-            }
-          }
-        }
-      }
-
-      let response = handler(extendedCtx);
-      if (response instanceof Promise) {
-        response = await response;
-      }
-      if (!(response instanceof Response)) {
-        response = this.resultToResponse(response);
-      }
-
-      if (hasAfterHooks) {
-        for (const hook of afterHandleHooks) {
-          const hookResult = hook(extendedCtx, response as Response);
-          if (hookResult instanceof Promise) {
-            response = await hookResult;
-          } else {
-            response = hookResult;
-          }
-        }
-      }
-
-      return response;
-    };
+    return createPluginWrapper(handler, {
+      deriveFns: this.contextState.deriveFns,
+      decorators: this.contextState.decorators,
+      decoratorKeys: Object.keys(this.contextState.decorators),
+      state: this.contextState.state,
+      beforeHooks: this.contextState.onBeforeHandleHooks,
+      afterHooks: this.contextState.onAfterHandleHooks,
+    });
   }
 
   // deno-lint-ignore no-explicit-any
@@ -1086,21 +1075,6 @@ export class Kage<
       "schemas" in config &&
       "handler" in config
     );
-  }
-
-  private resolvePath(path: string): string {
-    return this.normalizePath(this.basePath, path);
-  }
-
-  private normalizePath(base: string, path: string): string {
-    if (base === "/") {
-      return path.startsWith("/") ? path : `/${path}`;
-    }
-
-    const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
-    return `${normalizedBase}${normalizedPath}`;
   }
 
   fetch = (req: Request): Response | Promise<Response> => {
@@ -1191,7 +1165,6 @@ export class Kage<
       has: (k: string) => boolean;
     },
   ): Promise<Response> {
-    // Execute onError hooks
     for (const hook of this.contextState.onErrorHooks) {
       const result = await hook(error, req, requestContext);
       if (result !== null) {
@@ -1241,7 +1214,7 @@ export class Kage<
     if (result instanceof Promise) {
       return result.then(
         (r) => {
-          const response = this.resultToResponse(r);
+          const response = resultToResponse(r);
           this.contextPool.release(ctx);
           return response;
         },
@@ -1252,7 +1225,7 @@ export class Kage<
       );
     }
 
-    const response = this.resultToResponse(result);
+    const response = resultToResponse(result);
     this.contextPool.release(ctx);
     return response;
   }
@@ -1264,7 +1237,7 @@ export class Kage<
     try {
       const response = await this.middleware[0](ctx, async () => {
         const result = await handler(ctx);
-        return this.resultToResponse(result);
+        return resultToResponse(result);
       });
       this.contextPool.release(ctx);
       return response;
@@ -1282,7 +1255,7 @@ export class Kage<
       const composed = this.getComposedMiddleware();
       const response = await composed(ctx, async () => {
         const result = await handler(ctx);
-        return this.resultToResponse(result);
+        return resultToResponse(result);
       });
       this.contextPool.release(ctx);
       return response;
@@ -1296,87 +1269,13 @@ export class Kage<
     return new Response(INTERNAL_ERROR_BODY, { status: 500 });
   }
 
-  private resultToResponse(result: unknown): Response {
-    if (result instanceof Response) {
-      return result;
-    }
-
-    if (result == null) {
-      return new Response(null, { status: 204 });
-    }
-
-    if (typeof result === "object") {
-      if (result instanceof Uint8Array) {
-        return new Response(result as BodyInit, BINARY_INIT_200);
-      }
-      if (result instanceof ArrayBuffer) {
-        return new Response(result as BodyInit, BINARY_INIT_200);
-      }
-      if (result instanceof ReadableStream) {
-        return new Response(result as BodyInit, BINARY_INIT_200);
-      }
-      return Response.json(result);
-    }
-
-    if (typeof result === "string") {
-      return new Response(result, TEXT_INIT_200);
-    }
-
-    return Response.json(result);
-  }
-
   /**
    * Mount another Kage instance at a prefix.
-   * All routes from the mounted app will be available under the specified prefix.
-   * Routes from the mounted app will be wrapped with the parent app's plugins.
-   *
-   * @example
-   * ```typescript
-   * // With explicit prefix
-   * const usersRouter = new Kage()
-   *   .get("/", (ctx) => ctx.json({ users: [] }))
-   *   .get("/:id", (ctx) => ctx.json({ id: ctx.params.id }));
-   *
-   * const app = new Kage()
-   *   .decorate("db", database)
-   *   .mount("/api/users", usersRouter)
-   *   .get("/health", (ctx) => ctx.json({ status: "ok" }));
-   *
-   * // Routes:
-   * // GET /api/users     -> usersRouter's "/" handler (with db decorator)
-   * // GET /api/users/:id -> usersRouter's "/:id" handler (with db decorator)
-   * // GET /health        -> app's "/health" handler
-   *
-   * // Using prefix from mounted app
-   * const authRoutes = new Kage({ prefix: "/auth" })
-   *   .get("/login", (ctx) => ctx.json({ route: "login" }))
-   *   .post("/logout", (ctx) => ctx.json({ route: "logout" }));
-   *
-   * const app = new Kage()
-   *   .mount(authRoutes);  // Uses "/auth" as prefix
-   *
-   * // Routes:
-   * // GET /auth/login
-   * // POST /auth/logout
-   *
-   * // Mounting a generic handler
-   * const handler = (req: Request) => Promise<Response>
-   *
-   * const app = new Kage()
-   *   .mount("/api", handler);
-   *
-   * // All requests to /api/* will be handled by handler
-   * ```
    */
   // deno-lint-ignore no-explicit-any
   mount(app: Kage<any, any, any>): this;
   // deno-lint-ignore no-explicit-any
   mount(prefix: string, app: Kage<any, any, any>): this;
-  /**
-   * Mount a generic request handler at a prefix.
-   * The handler receives the raw Request and should return a Response.
-   * All requests matching the prefix will be forwarded to the handler.
-   */
   mount(
     prefix: string,
     handler: (request: Request) => Response | Promise<Response>,
@@ -1389,7 +1288,6 @@ export class Kage<
       | Kage<any, any, any>
       | ((request: Request) => Response | Promise<Response>),
   ): this {
-    // Handle generic handler mount: mount("/prefix", handler)
     if (
       typeof prefixOrApp === "string" &&
       typeof appOrHandler === "function" &&
@@ -1420,7 +1318,7 @@ export class Kage<
       prefix = mountedAppBasePath;
     }
 
-    const normalizedPrefix = this.normalizePath(this.basePath, prefix);
+    const normalizedPrefix = normalizePath(this.basePath, prefix);
     const routes = mountedApp._getRoutes();
 
     for (const route of routes) {
@@ -1432,7 +1330,7 @@ export class Kage<
         relativePath = relativePath.slice(mountedAppBasePath.length) || "/";
       }
       relativePath = relativePath === "/" ? "" : relativePath;
-      const fullPath = this.normalizePath(normalizedPrefix, relativePath);
+      const fullPath = normalizePath(normalizedPrefix, relativePath);
 
       const pluginWrappedHandler = this.wrapWithPlugins(route.handler);
       this.router.add(route.method, fullPath, pluginWrappedHandler);
@@ -1448,15 +1346,11 @@ export class Kage<
     return this;
   }
 
-  /**
-   * Mount a generic request handler at a prefix using wildcard routing.
-   * @internal
-   */
   private mountHandler(
     prefix: string,
     handler: (request: Request) => Response | Promise<Response>,
   ): this {
-    const normalizedPrefix = this.normalizePath(this.basePath, prefix);
+    const normalizedPrefix = normalizePath(this.basePath, prefix);
     const wildcardPath = `${normalizedPrefix}/*`;
 
     const wrappedHandler: Handler = (ctx: Context) => {
@@ -1483,8 +1377,6 @@ export class Kage<
       });
     }
 
-    // Also register the exact prefix path (without trailing wildcard)
-    // This handles requests to /api/auth exactly (not just /api/auth/*)
     for (const method of methods) {
       try {
         this.router.add(method, normalizedPrefix, wrappedHandler);
@@ -1539,8 +1431,10 @@ class KageGroup<
 
   private localDeriveFns: Array<DeriveFn<Record<string, unknown>>> = [];
   private localDecorators: Record<string, unknown> = {};
+  private localState: Record<string, unknown> = {};
   private localBeforeHandleHooks: Array<OnBeforeHandleHook<unknown>> = [];
   private localAfterHandleHooks: Array<OnAfterHandleHook<unknown>> = [];
+  private localOnErrorHooks: OnErrorHook[] = [];
 
   constructor(
     private parent: Kage<TDecorators, TState, TDerived>,
@@ -1560,11 +1454,69 @@ class KageGroup<
     >;
   }
 
+  state<K extends string, V>(
+    key: K,
+    initialValue: V,
+  ): KageGroup<TDecorators, TState & { [P in K]: V }, TDerived> {
+    this.localState[key] = initialValue;
+    return this as unknown as KageGroup<
+      TDecorators,
+      TState & { [P in K]: V },
+      TDerived
+    >;
+  }
+
   derive<TNew extends Record<string, unknown>>(
     fn: DeriveFn<TNew>,
   ): KageGroup<TDecorators, TState, TDerived & TNew> {
     this.localDeriveFns.push(fn as DeriveFn<Record<string, unknown>>);
     return this as unknown as KageGroup<TDecorators, TState, TDerived & TNew>;
+  }
+
+  /**
+   * Register a hook that runs before route matching for this group.
+   */
+  onRequest(hook: OnRequestHook): this {
+    this.localBeforeHandleHooks.unshift(
+      ((ctx: Context) => {
+        const reqCtx = {
+          set: <T>(key: string, value: T) => {
+            ctx.state[key] = value;
+          },
+          get: <T = unknown>(key: string) => ctx.state[key] as T | undefined,
+          has: (key: string) => key in ctx.state,
+        };
+        return hook(ctx.request, reqCtx);
+      }) as OnBeforeHandleHook<unknown>,
+    );
+    return this;
+  }
+
+  /**
+   * Register a hook that runs after handler execution for this group.
+   */
+  onResponse(hook: OnResponseHook): this {
+    this.localAfterHandleHooks.push(
+      ((ctx: Context, response: Response) => {
+        const reqCtx = {
+          set: <T>(key: string, value: T) => {
+            ctx.state[key] = value;
+          },
+          get: <T = unknown>(key: string) => ctx.state[key] as T | undefined,
+          has: (key: string) => key in ctx.state,
+        };
+        return hook(response, ctx.request, reqCtx);
+      }) as unknown as OnAfterHandleHook<unknown>,
+    );
+    return this;
+  }
+
+  /**
+   * Register an error handler hook for this group.
+   */
+  onError(hook: OnErrorHook): this {
+    this.localOnErrorHooks.push(hook);
+    return this;
   }
 
   onBeforeHandle(
@@ -1587,21 +1539,6 @@ class KageGroup<
 
   /**
    * Apply a plugin function to this group.
-   * Plugins can add decorators, derived values, hooks, and routes scoped to this group.
-   *
-   * @example
-   * ```typescript
-   * const requireAuth = (group) =>
-   *   group.onBeforeHandle((c) => {
-   *     if (!c.isAuthenticated) return c.unauthorized();
-   *   });
-   *
-   * app.group("/admin", (group) =>
-   *   group
-   *     .use(requireAuth)
-   *     .get("/dashboard", (c) => c.json({ admin: true }))
-   * );
-   * ```
    */
   use<
     TOutDecorators extends Record<string, unknown>,
@@ -1613,6 +1550,71 @@ class KageGroup<
     ) => KageGroup<TOutDecorators, TOutState, TOutDerived>,
   ): KageGroup<TOutDecorators, TOutState, TOutDerived> {
     return plugin(this);
+  }
+
+  /**
+   * Create a nested route group with a prefix.
+   */
+  group<
+    TGroupDecorators extends Record<string, unknown>,
+    TGroupState extends Record<string, unknown>,
+    TGroupDerived extends Record<string, unknown>,
+  >(
+    prefix: string,
+    configure: (
+      group: KageGroup<TDecorators, TState, TDerived>,
+    ) => KageGroup<
+      TDecorators & TGroupDecorators,
+      TState & TGroupState,
+      TDerived & TGroupDerived
+    >,
+  ): this {
+    const mergedState: ContextState<TDecorators, TState> = {
+      decorators: {
+        ...this.inheritedState.decorators,
+        ...this.localDecorators,
+      } as TDecorators,
+      state: {
+        ...this.inheritedState.state,
+        ...this.localState,
+      } as TState,
+      deriveFns: [
+        ...this.inheritedState.deriveFns,
+        ...this.localDeriveFns,
+      ],
+      onRequestHooks: [],
+      onResponseHooks: [],
+      onErrorHooks: [],
+      onBeforeHandleHooks: [
+        ...this.inheritedState.onBeforeHandleHooks,
+        ...this.localBeforeHandleHooks,
+      ],
+      onAfterHandleHooks: [
+        ...this.inheritedState.onAfterHandleHooks,
+        ...this.localAfterHandleHooks,
+      ],
+    };
+
+    const nestedGroup = new KageGroup<TDecorators, TState, TDerived>(
+      this.parent,
+      normalizePath(this.prefix, prefix),
+      mergedState,
+    );
+
+    nestedGroup.localOnErrorHooks = [...this.localOnErrorHooks];
+
+    const configuredGroup = configure(nestedGroup);
+
+    for (const route of configuredGroup._getRoutes()) {
+      this.routes.push(route);
+    }
+
+    return this;
+  }
+
+  /** @internal Get routes for nested groups */
+  _getRoutes(): Array<{ method: HttpMethod; path: string; handler: Handler }> {
+    return this.routes;
   }
 
   get<TPath extends string>(
@@ -1672,7 +1674,7 @@ class KageGroup<
   }
 
   private addRoute(method: HttpMethod, path: string, handler: Handler): void {
-    const fullPath = this.normalizePath(this.prefix, path);
+    const fullPath = normalizePath(this.prefix, path);
     const wrappedHandler = this.wrapWithGroupPlugins(handler);
     this.routes.push({ method, path: fullPath, handler: wrappedHandler });
   }
@@ -1686,8 +1688,10 @@ class KageGroup<
       ...this.inheritedState.decorators,
       ...this.localDecorators,
     };
-    const decoratorKeys = Object.keys(allDecorators);
-    const state = this.inheritedState.state;
+    const state = Object.assign(
+      Object.create(this.inheritedState.state),
+      this.localState,
+    ) as TState;
     const allBeforeHooks = [
       ...this.inheritedState.onBeforeHandleHooks,
       ...this.localBeforeHandleHooks,
@@ -1697,141 +1701,20 @@ class KageGroup<
       ...this.localAfterHandleHooks,
     ];
 
-    const hasDerive = allDeriveFns.length > 0;
-    const hasDecorators = decoratorKeys.length > 0;
-    const hasBeforeHooks = allBeforeHooks.length > 0;
-    const hasAfterHooks = allAfterHooks.length > 0;
-
-    if (!hasDerive && !hasDecorators && !hasBeforeHooks && !hasAfterHooks) {
-      return (ctx: Context) => {
-        (ctx as Context & { store: TState }).store = state;
-        return handler(ctx);
-      };
-    }
-
-    if (!hasDerive && !hasBeforeHooks && !hasAfterHooks) {
-      return (ctx: Context) => {
-        const extendedCtx = ctx as Context & TDecorators & { store: TState };
-        for (const key of decoratorKeys) {
-          (extendedCtx as Record<string, unknown>)[key] =
-            allDecorators[key as keyof typeof allDecorators];
-        }
-        extendedCtx.store = state;
-        return handler(extendedCtx);
-      };
-    }
-
-    return async (ctx: Context) => {
-      const extendedCtx = ctx as
-        & Context
-        & TDecorators
-        & { store: TState }
-        & TDerived;
-
-      if (hasDecorators) {
-        for (const key of decoratorKeys) {
-          (extendedCtx as Record<string, unknown>)[key] =
-            allDecorators[key as keyof typeof allDecorators];
-        }
-      }
-      extendedCtx.store = state;
-
-      if (hasDerive) {
-        for (const deriveFn of allDeriveFns) {
-          const derived = deriveFn(ctx);
-          if (derived instanceof Promise) {
-            const resolvedDerived = await derived;
-            for (const key in resolvedDerived) {
-              (extendedCtx as Record<string, unknown>)[key] =
-                resolvedDerived[key];
-            }
-          } else {
-            for (const key in derived) {
-              (extendedCtx as Record<string, unknown>)[key] = derived[key];
-            }
-          }
-        }
-      }
-
-      if (hasBeforeHooks) {
-        for (const hook of allBeforeHooks) {
-          const result = hook(extendedCtx);
-          if (result instanceof Response) {
-            return result;
-          }
-          if (result instanceof Promise) {
-            const resolved = await result;
-            if (resolved instanceof Response) {
-              return resolved;
-            }
-          }
-        }
-      }
-
-      let response = handler(extendedCtx);
-      if (response instanceof Promise) {
-        response = await response;
-      }
-      if (!(response instanceof Response)) {
-        response = this.resultToResponse(response);
-      }
-
-      if (hasAfterHooks) {
-        for (const hook of allAfterHooks) {
-          const hookResult = hook(extendedCtx, response as Response);
-          if (hookResult instanceof Promise) {
-            response = await hookResult;
-          } else {
-            response = hookResult;
-          }
-        }
-      }
-
-      return response;
-    };
+    return createPluginWrapper(handler, {
+      deriveFns: allDeriveFns,
+      decorators: allDecorators,
+      decoratorKeys: Object.keys(allDecorators),
+      state,
+      beforeHooks: allBeforeHooks,
+      afterHooks: allAfterHooks,
+      onErrorHooks: this.localOnErrorHooks.length > 0
+        ? this.localOnErrorHooks
+        : undefined,
+    });
   }
 
-  private normalizePath(base: string, path: string): string {
-    if (base === "/") {
-      return path.startsWith("/") ? path : `/${path}`;
-    }
-
-    const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
-    return `${normalizedBase}${normalizedPath}`;
-  }
-
-  private resultToResponse(result: unknown): Response {
-    if (result instanceof Response) {
-      return result;
-    }
-
-    if (result == null) {
-      return new Response(null, { status: 204 });
-    }
-
-    if (typeof result === "object") {
-      if (result instanceof Uint8Array) {
-        return new Response(result as BodyInit, BINARY_INIT_200);
-      }
-      if (result instanceof ArrayBuffer) {
-        return new Response(result as BodyInit, BINARY_INIT_200);
-      }
-      if (result instanceof ReadableStream) {
-        return new Response(result as BodyInit, BINARY_INIT_200);
-      }
-      return Response.json(result);
-    }
-
-    if (typeof result === "string") {
-      return new Response(result, TEXT_INIT_200);
-    }
-
-    return Response.json(result);
-  }
-
-  /** @internal Apply routes to parent app */
+  /** @internal Apply routes to parent app (only routes, NOT hooks) */
   applyToParent(): void {
     for (const route of this.routes) {
       this.parent._addRouteInternal(route.method, route.path, route.handler);
