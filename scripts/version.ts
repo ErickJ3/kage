@@ -1,16 +1,10 @@
 const packages = [
-  "packages/router/deno.json",
   "packages/core/deno.json",
-  "packages/schema/deno.json",
-  "packages/workers/deno.json",
 ];
 
 // Internal @kage/* dependencies that need version updates
 const internalDeps = [
   "@kage/core",
-  "@kage/router",
-  "@kage/schema",
-  "@kage/workers",
 ];
 
 const version = Deno.args[0];
