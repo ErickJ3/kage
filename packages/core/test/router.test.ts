@@ -122,7 +122,10 @@ describe("Router", () => {
       router.add("GET", "/users/list", () => "usersList");
 
       assertEquals(router.find("GET", "/users")?.handler(mockCtx()), "users");
-      assertEquals(router.find("GET", "/users/list")?.handler(mockCtx()), "usersList");
+      assertEquals(
+        router.find("GET", "/users/list")?.handler(mockCtx()),
+        "usersList",
+      );
     });
 
     it("should prefer static over param routes", () => {
@@ -131,7 +134,10 @@ describe("Router", () => {
       router.add("GET", "/users/:id", () => "byId");
 
       assertEquals(router.find("GET", "/users/me")?.handler(mockCtx()), "me");
-      assertEquals(router.find("GET", "/users/123")?.handler(mockCtx()), "byId");
+      assertEquals(
+        router.find("GET", "/users/123")?.handler(mockCtx()),
+        "byId",
+      );
     });
 
     it("should prefer param over wildcard routes", () => {
@@ -139,7 +145,10 @@ describe("Router", () => {
       router.add("GET", "/files/:name", () => "byName");
       router.add("GET", "/files/*", () => "wildcard");
 
-      assertEquals(router.find("GET", "/files/test.txt")?.handler(mockCtx()), "byName");
+      assertEquals(
+        router.find("GET", "/files/test.txt")?.handler(mockCtx()),
+        "byName",
+      );
       assertEquals(
         router.find("GET", "/files/path/to/file.txt")?.handler(mockCtx()),
         "wildcard",

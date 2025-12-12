@@ -263,8 +263,9 @@ describe("schema/middleware", () => {
         {},
       );
 
-      const response = await middleware(ctx, () =>
-        Promise.resolve(new Response())
+      const response = await middleware(
+        ctx,
+        () => Promise.resolve(new Response()),
       );
 
       assertEquals(response.status, 400);
@@ -300,8 +301,9 @@ describe("schema/middleware", () => {
         { id: "abc" },
       );
 
-      const response = await middleware(ctx, () =>
-        Promise.resolve(new Response())
+      const response = await middleware(
+        ctx,
+        () => Promise.resolve(new Response()),
       );
 
       assertEquals(response.status, 400);
@@ -344,8 +346,9 @@ describe("schema/middleware", () => {
         {},
       );
 
-      const response = await middleware(ctx, () =>
-        Promise.resolve(new Response())
+      const response = await middleware(
+        ctx,
+        () => Promise.resolve(new Response()),
       );
 
       assertEquals(response.status, 400);
@@ -367,8 +370,9 @@ describe("schema/middleware", () => {
         {},
       );
 
-      const response = await middleware(ctx, () =>
-        Promise.resolve(new Response())
+      const response = await middleware(
+        ctx,
+        () => Promise.resolve(new Response()),
       );
 
       assertEquals(response.status, 400);
@@ -390,8 +394,9 @@ describe("schema/middleware", () => {
         {},
       );
 
-      const response = await middleware(ctx, () =>
-        Promise.resolve(new Response())
+      const response = await middleware(
+        ctx,
+        () => Promise.resolve(new Response()),
       );
 
       assertEquals(response.status, 400);
@@ -412,8 +417,9 @@ describe("schema/middleware", () => {
 
         const ctx = new Context(new Request("http://localhost/test"), {});
 
-        await middleware(ctx, () =>
-          Promise.resolve(Response.json({ id: "not-a-number" }))
+        await middleware(
+          ctx,
+          () => Promise.resolve(Response.json({ id: "not-a-number" })),
         );
 
         assertEquals(warnings.length > 0, true);
@@ -442,8 +448,9 @@ describe("schema/middleware", () => {
 
         const ctx = new Context(new Request("http://localhost/test"), {});
 
-        await middleware(ctx, () =>
-          Promise.resolve(Response.json({ id: "not-a-number" }))
+        await middleware(
+          ctx,
+          () => Promise.resolve(Response.json({ id: "not-a-number" })),
         );
 
         assertEquals(warnings.length, 0);

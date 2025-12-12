@@ -70,7 +70,9 @@ export async function applyDerives(
 ): Promise<void> {
   for (let i = 0; i < deriveFns.length; i++) {
     const derived = deriveFns[i](ctx);
-    const resolvedDerived = derived instanceof Promise ? await derived : derived;
+    const resolvedDerived = derived instanceof Promise
+      ? await derived
+      : derived;
     for (const key in resolvedDerived) {
       extendedCtx[key] = resolvedDerived[key];
     }
