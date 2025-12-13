@@ -334,7 +334,7 @@ export class Context {
    * @param status - HTTP status code
    * @param message - Error message
    */
-  error(status: number, message: string) {
+  error(status: number, message: string): Response {
     return this.json({ error: message }, status);
   }
 }
