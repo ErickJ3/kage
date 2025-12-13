@@ -99,8 +99,7 @@ export function validateSchema(config: SchemaConfig): Middleware {
 
     if (config.response && Deno.env.get("DENO_ENV") === "development") {
       try {
-        const responseClone = response.clone();
-        const responseBody = await responseClone.json();
+        const responseBody = await response.clone().json();
         const result = await validate(config.response, responseBody);
 
         if (!result.success) {
@@ -110,7 +109,7 @@ export function validateSchema(config: SchemaConfig): Middleware {
           );
         }
       } catch {
-        // Response is not JSON or failed to parse
+        // not json, skip
       }
     }
 

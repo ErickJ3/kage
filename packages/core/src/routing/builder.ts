@@ -153,8 +153,7 @@ export function wrapTypedHandler(
         const contentType = response.headers.get("content-type") ?? "";
         if (contentType.includes("application/json")) {
           try {
-            const cloned = response.clone();
-            dataToValidate = await cloned.json();
+            dataToValidate = await response.clone().json();
           } catch {
             // not json, skip
           }
